@@ -22,14 +22,12 @@ RAW_RATINGS = {
     "RLY": {"OFF": 69, "DEF": 61, "SPT": 75}, "GRG": {"OFF": 69, "DEF": 67, "SPT": 69}
 }
 
-# Calculate Overall Rating and sort descending
 TEAM_OVERALLS = []
 for team, stats in RAW_RATINGS.items():
     overall = round((stats["OFF"] * 3 + stats["DEF"] * 3 + stats["SPT"]) / 7, 2)
     TEAM_OVERALLS.append((team, overall))
 
 TEAM_OVERALLS.sort(key=lambda x: x[1], reverse=True)
-# Create the formatted string list: "STF 94.32"
 TEAM_DISPLAY_LIST = [f"{t} {o:.2f}" for t, o in TEAM_OVERALLS]
 
 WEATHER_OPTIONS = ["Random", "Clear", "Extreme Rain", "Heavy Snow", "Heavy Winds", "Extreme Cold"]
@@ -202,11 +200,9 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     home_display = st.selectbox("Home Team", TEAM_DISPLAY_LIST, index=0)
-    # Split by the last space to get just the team abbreviation "STF"
     home_team = home_display.rsplit(' ', 1)[0]
 
 with col2:
-    # Default away team to index 1 (the 2nd best team) so it doesn't default to the same team
     away_display = st.selectbox("Away Team", TEAM_DISPLAY_LIST, index=1)
     away_team = away_display.rsplit(' ', 1)[0]
 
@@ -258,16 +254,26 @@ else:
         else: winner = "TIE"
         situation.success(f"**FINAL:** {winner} wins!" if winner != "TIE" else "**FINAL:** Tie Game!")
 
-    ctrl_cols = st.columns(4)
+    # Updated Play Control Section
+    st.write("**Simulation Controls**")
+    ctrl_cols = st.columns([1, 2, 1.5, 2])
+    
     with ctrl_cols[0]:
         if st.button("▶ Next Play", use_container_width=True, disabled=game["game_over"]):
             simulate_play(game); st.rerun()
+            
     with ctrl_cols[1]:
-        if st.button("▶▶ Next 10 Plays", use_container_width=True, disabled=game["game_over"]):
-            for _ in range(10):
+        # Custom number input for plays
+        custom_plays = st.number_input("Plays to Sim", min_value=1, max_value=200, value=10, label_visibility="collapsed")
+        
+    with ctrl_cols[2]:
+        # Button to trigger the custom number
+        if st.button(f"▶▶ Next {custom_plays} Plays", use_container_width=True, disabled=game["game_over"]):
+            for _ in range(custom_plays):
                 if not game["game_over"]: simulate_play(game)
             st.rerun()
-    with ctrl_cols[2]:
+            
+    with ctrl_cols[3]:
         if st.button("⏩ Sim Rest of Game", use_container_width=True, disabled=game["game_over"]):
             while not game["game_over"]: simulate_play(game)
             st.rerun()
