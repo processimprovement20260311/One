@@ -64,11 +64,6 @@ def init_game(home_team, away_team, weather_choice, must_win=False):
         "overtime": False,
     }
 
-def add_log(state, text):
-    q = state["quarter"]
-    q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
-    state["play_log"].append(f"{q_label} {state['clock']//60:02d}:{state['clock']%60:02d} - {text}")
-
 # ============================================================
 # HELPERS
 # ============================================================
@@ -98,140 +93,17 @@ def simulate_play(state):
     def_team = state["away"] if off_team == state["home"] else state["home"]
     pass_penalty = weather_pass_penalty(state["weather"])
 
-    # --- Play selection ---
-    if state["yardline"] >= 80:  # red zone — favor runs
-        is_pass = random.random() < 0.35
-    elif state["down"] == 3 and state["distance"] >= 7:
-        is_pass = random.random() < 0.85
-    elif state["down"] == 2 and state["distance"] >= 5:
-        is_pass = random.random() < 0.65
-    else:
-        is_pass = random.random() < 0.50
+    # Capture pre-play snapshot for the log
+    pre_play_down = state["down"]
+    pre_play_dist = state["distance"]
+    pre_play_yard = state["yardline"]
+    pre_play_poss = state["possession"]
 
-    yards_gained = 0
-    is_turnover = False
-    is_int = False
-    is_td = False
-    is_safety = False
-    is_incomplete = False
-    play_desc = ""
-
-    # --- Play outcome ---
-    if is_pass:
-        outcome = random.random()
-        if outcome < 0.35:                       # 35% incomplete
-            yards_gained = 0
-            is_incomplete = True
-            play_desc = "Incomplete pass."
-        elif outcome < 0.375:                    # 2.5% interception
-            yards_gained = 0
-            is_turnover = True
-            is_int = True
-            play_desc = f"INTERCEPTION by {def_team}!"
-        elif outcome < 0.44:                     # 6.5% sack
-            sack_loss = random.randint(3, 7)
-            # Prevent sacks from causing a safety from beyond own 3
-            if state["yardline"] - sack_loss <= 2:
-                sack_loss = max(0, state["yardline"] - 2)
-            yards_gained = -sack_loss
-            play_desc = (f"Sacked for a loss of {sack_loss} yards." if sack_loss > 0
-                         else "Sack blown dead at the line.")
-        else:                                    # 56.5% complete
-            yards_gained = max(1, random.randint(3, 25) + pass_penalty)
-            play_desc = f"Pass complete for {yards_gained} yards."
-            state["stats"][off_team]["Pass Yds"] += yards_gained
-    else:
-        outcome = random.random()
-        if outcome < 0.005:                      # 0.5% fumble
-            yards_gained = 0
-            is_turnover = True
-            play_desc = f"FUMBLE! Recovered by {def_team}."
-        else:
-            yards_gained = random.randint(-2, 12)
-            if yards_gained < 0:
-                play_desc = f"Rush for a loss of {abs(yards_gained)} yards."
-            else:
-                play_desc = f"Rush for {yards_gained} yards."
-            state["stats"][off_team]["Rush Yds"] += yards_gained
-
-    # --- Safety valve: prevent cheap safeties on backward plays ---
-    if not is_turnover and (state["yardline"] + yards_gained) <= 0:
-        if random.random() < 0.85:
-            yards_gained = max(0, 1 - state["yardline"])
-            play_desc += " (Stopped short of the goal line.)"
-
-    new_yardline = state["yardline"] + yards_gained
-
-    # --- Apply result ---
-    if not is_turnover:
-        if new_yardline >= 100:
-            is_td = True
-            if off_team == state["home"]: state["home_score"] += 7
-            else: state["away_score"] += 7
-            play_desc += " TOUCHDOWN! Extra point is good."
-            state["stats"][off_team]["1st Downs"] += 1
-            kickoff(state, def_team)
-        elif new_yardline <= 0:
-            is_safety = True
-            if def_team == state["home"]: state["home_score"] += 2
-            else: state["away_score"] += 2
-            play_desc += " SAFETY! 2 points."
-            # Free kick: defense receives at own 40
-            state["possession"] = def_team
-            state["yardline"] = 40
-            state["down"] = 1
-            state["distance"] = 10
-        else:
-            state["yardline"] = new_yardline
-            if yards_gained >= state["distance"]:
-                state["down"] = 1
-                state["distance"] = 10
-                state["stats"][off_team]["1st Downs"] += 1
-                play_desc += " FIRST DOWN."
-            else:
-                state["down"] += 1
-                state["distance"] -= yards_gained
-
-    # --- Turnovers ---
-    if is_turnover:
-        state["stats"][off_team]["Turnovers"] += 1
-        if is_int:
-            if random.random() < 0.12:  # 12% pick-six
-                if def_team == state["home"]: state["home_score"] += 7
-                else: state["away_score"] += 7
-                play_desc += " Returned for a TOUCHDOWN!"
-                kickoff(state, off_team)
-            else:
-                ret = random.randint(0, 20)
-                spot = state["yardline"] + ret
-                if spot >= 100:
-                    # Returned to/through end zone — touchback
-                    state["possession"] = def_team
-                    state["yardline"] = 20
-                else:
-                    state["possession"] = def_team
-                    state["yardline"] = 100 - spot
-                state["down"] = 1
-                state["distance"] = 10
-        else:
-            # Fumble recovery — no return modeled
-            state["possession"] = def_team
-            state["yardline"] = 100 - state["yardline"]
-            if state["yardline"] < 1: state["yardline"] = 1
-            state["down"] = 1
-            state["distance"] = 10
-    elif state["down"] > 4:
-        # Turnover on downs — ball at spot
-        play_desc += " Turnover on downs."
-        state["possession"] = def_team
-        state["yardline"] = 100 - state["yardline"]
-        if state["yardline"] < 1: state["yardline"] = 1
-        state["down"] = 1
-        state["distance"] = 10
-
-    # --- 4th-down decision (FG / punt / go for it) ---
-    if state["down"] == 4 and not is_td and not is_turnover and not is_safety:
-        # Go for it?
+    # --- 1. 4th Down Decision (Evaluated BEFORE the play starts) ---
+    is_fg = False
+    is_punt = False
+    
+    if state["down"] == 4:
         trailing = (
             (off_team == state["home"] and state["home_score"] < state["away_score"]) or
             (off_team == state["away"] and state["away_score"] < state["home_score"])
@@ -241,82 +113,219 @@ def simulate_play(state):
             (state["quarter"] >= 4 and state["clock"] < 300 and trailing)
         )
 
-        if go_for_it:
-            # Let the next call handle it — fall through, don't punt
-            pass
-        elif state["yardline"] >= 62:
-            # Field goal attempt
-            fg_dist = (100 - state["yardline"]) + 17
-            make_prob = max(0.0, min(0.98, 0.95 - (fg_dist - 20) * 0.014))
-            state["stats"][off_team]["FG Att"] += 1
-            if random.random() < make_prob:
-                if off_team == state["home"]: state["home_score"] += 3
-                else: state["away_score"] += 3
-                state["stats"][off_team]["FG Made"] += 1
-                play_desc = f"{fg_dist}-yard field goal is GOOD."
-                kickoff(state, def_team)
+        if not go_for_it:
+            if state["yardline"] >= 62:
+                is_fg = True
             else:
-                play_desc = f"{fg_dist}-yard field goal is NO GOOD."
+                is_punt = True
+
+    # --- 2. Simulate the actual play ---
+    yards_gained = 0
+    is_turnover = False
+    is_int = False
+    is_td = False
+    is_safety = False
+    is_incomplete = False
+    play_desc = ""
+
+    if is_fg:
+        fg_dist = (100 - state["yardline"]) + 17
+        make_prob = max(0.0, min(0.98, 0.95 - (fg_dist - 20) * 0.014))
+        state["stats"][off_team]["FG Att"] += 1
+        if random.random() < make_prob:
+            if off_team == state["home"]: state["home_score"] += 3
+            else: state["away_score"] += 3
+            state["stats"][off_team]["FG Made"] += 1
+            play_desc = f"{fg_dist}-yard field goal is GOOD."
+            kickoff(state, def_team)
+        else:
+            play_desc = f"{fg_dist}-yard field goal is NO GOOD."
+            state["possession"] = def_team
+            miss_spot = 100 - state["yardline"]
+            state["yardline"] = max(20, miss_spot)
+            state["down"] = 1
+            state["distance"] = 10
+    elif is_punt:
+        punt_yards = random.randint(35, 55)
+        landing = state["yardline"] + punt_yards
+        state["possession"] = def_team
+        if landing >= 100:
+            state["yardline"] = 20
+            play_desc = f"Punt for {punt_yards} yards. Touchback."
+        else:
+            state["yardline"] = 100 - landing
+            play_desc = f"Punt for {punt_yards} yards. Fair catch."
+        state["down"] = 1
+        state["distance"] = 10
+    else:
+        # Standard offensive play
+        if state["yardline"] >= 80:
+            is_pass = random.random() < 0.35
+        elif state["down"] == 3 and state["distance"] >= 7:
+            is_pass = random.random() < 0.85
+        elif state["down"] == 2 and state["distance"] >= 5:
+            is_pass = random.random() < 0.65
+        else:
+            is_pass = random.random() < 0.50
+
+        if is_pass:
+            outcome = random.random()
+            if outcome < 0.35:
+                yards_gained = 0
+                is_incomplete = True
+                play_desc = "Incomplete pass."
+            elif outcome < 0.375:
+                yards_gained = 0
+                is_turnover = True
+                is_int = True
+                play_desc = f"INTERCEPTION by {def_team}!"
+            elif outcome < 0.44:
+                sack_loss = random.randint(3, 7)
+                if state["yardline"] - sack_loss <= 2:
+                    sack_loss = max(0, state["yardline"] - 2)
+                yards_gained = -sack_loss
+                play_desc = (f"Sacked for a loss of {sack_loss} yards." if sack_loss > 0
+                             else "Sack blown dead at the line.")
+            else:
+                yards_gained = max(1, random.randint(3, 25) + pass_penalty)
+                play_desc = f"Pass complete for {yards_gained} yards."
+                state["stats"][off_team]["Pass Yds"] += yards_gained
+        else:
+            outcome = random.random()
+            if outcome < 0.005:
+                yards_gained = 0
+                is_turnover = True
+                play_desc = f"FUMBLE! Recovered by {def_team}."
+            else:
+                yards_gained = random.randint(-2, 12)
+                if yards_gained < 0:
+                    play_desc = f"Rush for a loss of {abs(yards_gained)} yards."
+                else:
+                    play_desc = f"Rush for {yards_gained} yards."
+                state["stats"][off_team]["Rush Yds"] += yards_gained
+
+        # Safety valve
+        if not is_turnover and (state["yardline"] + yards_gained) <= 0:
+            if random.random() < 0.85:
+                yards_gained = max(0, 1 - state["yardline"])
+                play_desc += " (Stopped short of the goal line.)"
+
+        new_yardline = state["yardline"] + yards_gained
+
+        # Apply Result
+        if not is_turnover:
+            if new_yardline >= 100:
+                is_td = True
+                if off_team == state["home"]: state["home_score"] += 7
+                else: state["away_score"] += 7
+                play_desc += " TOUCHDOWN! Extra point is good."
+                state["stats"][off_team]["1st Downs"] += 1
+                kickoff(state, def_team)
+            elif new_yardline <= 0:
+                is_safety = True
+                if def_team == state["home"]: state["home_score"] += 2
+                else: state["away_score"] += 2
+                play_desc += " SAFETY! 2 points."
                 state["possession"] = def_team
-                # Spot: ball at the previous LOS or 20, whichever is further back for defense
-                miss_spot = 100 - state["yardline"]
-                state["yardline"] = max(20, miss_spot)
+                state["yardline"] = 40
                 state["down"] = 1
                 state["distance"] = 10
-        else:
-            # Punt
-            punt_yards = random.randint(35, 55)
-            landing = state["yardline"] + punt_yards  # from punting team's perspective
-            state["possession"] = def_team
-            if landing >= 100:
-                state["yardline"] = 20  # touchback
-                play_desc = f"Punt for {punt_yards} yards. Touchback."
             else:
-                state["yardline"] = 100 - landing
-                play_desc = f"Punt for {punt_yards} yards. Fair catch."
+                state["yardline"] = new_yardline
+                if yards_gained >= state["distance"]:
+                    state["down"] = 1
+                    state["distance"] = 10
+                    state["stats"][off_team]["1st Downs"] += 1
+                    play_desc += " FIRST DOWN."
+                else:
+                    state["down"] += 1
+                    state["distance"] -= yards_gained
+
+        # Turnovers
+        if is_turnover:
+            state["stats"][off_team]["Turnovers"] += 1
+            if is_int:
+                if random.random() < 0.12:
+                    if def_team == state["home"]: state["home_score"] += 7
+                    else: state["away_score"] += 7
+                    play_desc += " Returned for a TOUCHDOWN!"
+                    kickoff(state, off_team)
+                else:
+                    ret = random.randint(0, 20)
+                    spot = state["yardline"] + ret
+                    if spot >= 100:
+                        state["possession"] = def_team
+                        state["yardline"] = 20
+                    else:
+                        state["possession"] = def_team
+                        state["yardline"] = 100 - spot
+                    state["down"] = 1
+                    state["distance"] = 10
+            else:
+                state["possession"] = def_team
+                state["yardline"] = 100 - state["yardline"]
+                if state["yardline"] < 1: state["yardline"] = 1
+                state["down"] = 1
+                state["distance"] = 10
+        elif state["down"] > 4:
+            play_desc += " Turnover on downs."
+            state["possession"] = def_team
+            state["yardline"] = 100 - state["yardline"]
+            if state["yardline"] < 1: state["yardline"] = 1
             state["down"] = 1
             state["distance"] = 10
 
-    add_log(state, play_desc)
+    # --- 3. Log the play using the PRE-PLAY situation ---
+    q = state["quarter"]
+    q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
+    clock_str = f"{state['clock']//60:02d}:{state['clock']%60:02d}"
+    
+    if pre_play_yard > 50:
+        opp = state["away"] if pre_play_poss == state["home"] else state["home"]
+        field_str = f"{opp} {100 - pre_play_yard}"
+    else:
+        field_str = f"{pre_play_poss} {pre_play_yard}"
+        
+    down_str = "Goal" if pre_play_dist >= pre_play_yard else str(pre_play_dist)
+    
+    log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
+    state["play_log"].append(log_entry)
 
-    # --- Clock management ---
-    if is_incomplete:
+    # --- 4. Clock Management ---
+    if is_incomplete or is_fg or is_punt:
         time_taken = random.randint(5, 10)
-    elif is_td or is_safety or "field goal" in play_desc or "Punt" in play_desc:
+    elif is_td or is_safety:
         time_taken = random.randint(5, 15)
     elif state["down"] in (1, 2) and random.random() < 0.3:
-        time_taken = random.randint(10, 20)  # out of bounds
+        time_taken = random.randint(10, 20)
     else:
         time_taken = random.randint(25, 40)
+    
     state["clock"] -= time_taken
     if state["clock"] < 0: state["clock"] = 0
 
-    # --- Quarter / overtime / end of game ---
+    # --- 5. End of Quarter / OT Logic ---
     if state["clock"] <= 0:
         if state["quarter"] < 4:
             state["quarter"] += 1
             state["clock"] = 900
-            add_log(state, f"End of Q{state['quarter']-1}. Start of Q{state['quarter']}.")
-        elif (state["home_score"] == state["away_score"]
-              and state["must_win"]
-              and not state["overtime"]):
+            state["play_log"].append(f"--- End of Q{state['quarter']-1}. Start of Q{state['quarter']}. ---")
+        elif (state["home_score"] == state["away_score"] and state["must_win"] and not state["overtime"]):
             state["overtime"] = True
             state["quarter"] = 5
             state["clock"] = 600
-            add_log(state, "End of regulation. Overtime!")
+            state["play_log"].append("--- End of regulation. Overtime! ---")
         elif state["overtime"] and state["home_score"] == state["away_score"]:
             state["clock"] = 600
-            add_log(state, "End of OT period. Another OT period!")
+            state["play_log"].append("--- End of OT period. Another OT period! ---")
         else:
             state["game_over"] = True
-            add_log(state, "End of Game.")
+            state["play_log"].append("--- End of Game. ---")
 
-    # --- Sudden-death OT: end immediately on any score ---
     if state["overtime"] and not state["game_over"]:
-        if (is_td or is_safety or
-            (state["down"] == 1 and "field goal is GOOD" in play_desc)):
+        if (is_td or is_safety or is_fg):
             state["game_over"] = True
-            add_log(state, "Overtime score — Game Over.")
+            state["play_log"].append("--- Overtime score — Game Over. ---")
 
 # ============================================================
 # UI & STREAMLIT LOGIC
