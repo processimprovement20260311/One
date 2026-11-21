@@ -31,6 +31,7 @@ TEAM_OVERALLS.sort(key=lambda x: x[1], reverse=True)
 TEAM_DISPLAY_LIST = [f"{t} {o:.2f}" for t, o in TEAM_OVERALLS]
 
 WEATHER_OPTIONS = ["Random", "Clear", "Extreme Rain", "Heavy Snow", "Heavy Winds", "Extreme Cold"]
+COACHING_PROFILES = ["Analytics (Aggressive)", "Traditional (Balanced)", "Conservative"]
 
 # ============================================================
 # RADIO BROADCAST PHRASE LIBRARY
@@ -221,9 +222,68 @@ RADIO_LIBRARY = {
 }
 
 # ============================================================
+# COACHING LOGIC ENGINE
+# ============================================================
+def decide_4th_down(yardline, distance, score_diff, clock, quarter, coach_style):
+    """Returns: 'GO_FOR_IT', 'FIELD_GOAL', or 'PUNT'"""
+    # Losing late - must be aggressive
+    if quarter >= 4 and clock < 300 and score_diff < 0:
+        if yardline >= 40: # Past own 40
+            return "GO_FOR_IT"
+            
+    if coach_style == "Analytics (Aggressive)":
+        if distance <= 3:
+            if yardline >= 35: return "GO_FOR_IT"
+            return "PUNT"
+        else:
+            if yardline >= 62: return "FIELD_GOAL"
+            if yardline >= 50: return "GO_FOR_IT"
+            return "PUNT"
+            
+    elif coach_style == "Conservative":
+        if distance <= 1 and yardline >= 95:
+            return "GO_FOR_IT"
+        if yardline >= 75: # Inside opponent 25
+            return "FIELD_GOAL"
+        return "PUNT"
+        
+    else: # Traditional (Balanced)
+        if distance <= 2 and yardline >= 60:
+            return "GO_FOR_IT"
+        if distance <= 3 and yardline >= 80: # Red zone short
+            return "GO_FOR_IT"
+        if yardline >= 62: # FG Range
+            return "FIELD_GOAL"
+        return "PUNT"
+
+def decide_2pt(score_diff, clock, quarter, coach_style):
+    """Returns True if going for 2, False for XP"""
+    if coach_style == "Conservative":
+        # Only go for 2 if down by 2 late
+        return (score_diff == -2 and quarter >= 4 and clock < 120)
+        
+    elif coach_style == "Analytics (Aggressive)":
+        # Chase points based on standard chart
+        if score_diff in [-2, -5, -8, 1, 4]: 
+            return True
+        return False
+        
+    else: # Traditional
+        if score_diff in [-2, -8] and quarter >= 4 and clock < 300:
+            return True
+        return False
+
+def decide_take_knee(yardline, score_diff, clock, opp_timeouts):
+    """Returns True if taking a knee"""
+    # Standard victory formation logic
+    if score_diff > 0 and clock < 120 and opp_timeouts == 0:
+        return True
+    return False
+
+# ============================================================
 # GAME STATE INITIALIZATION
 # ============================================================
-def init_game(home_team, away_team, weather_choice, must_win=False, radio_enabled=False):
+def init_game(home_team, away_team, weather_choice, home_coach, away_coach, must_win=False, radio_enabled=False):
     if weather_choice == "Random":
         r = random.random()
         actual_weather = ("Clear" if r < 0.77 else "Extreme Rain" if r < 0.82 else
@@ -233,6 +293,7 @@ def init_game(home_team, away_team, weather_choice, must_win=False, radio_enable
 
     return {
         "home": home_team, "away": away_team,
+        "home_coach": home_coach, "away_coach": away_coach,
         "weather": actual_weather,
         "home_score": 0, "away_score": 0,
         "quarter": 1,
@@ -240,6 +301,7 @@ def init_game(home_team, away_team, weather_choice, must_win=False, radio_enable
         "possession": home_team,
         "down": 1, "distance": 10,
         "yardline": 25,
+        "home_timeouts": 3, "away_timeouts": 3,
         "play_log": [],
         "stats": {
             home_team: {"Pass Yds": 0, "Rush Yds": 0, "1st Downs": 0, "Turnovers": 0,
@@ -306,6 +368,7 @@ def simulate_play(state):
 
     off_team = state["possession"]
     def_team = state["away"] if off_team == state["home"] else state["home"]
+    coach_style = state["home_coach"] if off_team == state["home"] else state["away_coach"]
     pass_penalty = weather_pass_penalty(state["weather"])
 
     pre_play_down = state["down"]
@@ -318,23 +381,41 @@ def simulate_play(state):
 
     is_late_game = (state["quarter"] >= 4 and abs(state["home_score"] - state["away_score"]) <= 8 and state["clock"] <= 480)
 
-    # --- 1. 4th Down Decision ---
+    # --- 1. Coach Logic: Check for Take a Knee ---
+    opp_timeouts = state["away_timeouts"] if off_team == state["home"] else state["home_timeouts"]
+    score_diff = (state["home_score"] - state["away_score"]) if off_team == state["home"] else (state["away_score"] - state["home_score"])
+    
+    if decide_take_knee(state["yardline"], score_diff, state["clock"], opp_timeouts):
+        state["down"] += 1
+        state["yardline"] -= 1
+        play_desc = f"{off_team} takes a knee. The clock winds down."
+        radio_type = "punt"
+        
+        q = state["quarter"]
+        q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
+        clock_str = f"{pre_clock//60:02d}:{pre_clock%60:02d}"
+        field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist, state["home"], state["away"])
+        
+        state["play_log"].append(f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}")
+        state["clock"] -= 40 # Kneel takes 40 seconds
+        if state["clock"] < 0: state["clock"] = 0
+        if state["down"] > 4:
+            state["down"] = 1
+            state["distance"] = 10
+            state["possession"] = def_team
+            state["yardline"] = 100 - state["yardline"]
+        return
+
+    # --- 2. Coach Logic: 4th Down Decision ---
     is_fg = False
     is_punt = False
     if state["down"] == 4:
-        trailing = (
-            (off_team == state["home"] and state["home_score"] < state["away_score"]) or
-            (off_team == state["away"] and state["away_score"] < state["home_score"])
-        )
-        go_for_it = (
-            (state["distance"] <= 2 and state["yardline"] >= 60) or
-            (state["quarter"] >= 4 and state["clock"] < 300 and trailing)
-        )
-        if not go_for_it:
-            if state["yardline"] >= 62: is_fg = True
-            else: is_punt = True
+        decision = decide_4th_down(state["yardline"], state["distance"], score_diff, state["clock"], state["quarter"], coach_style)
+        if decision == "FIELD_GOAL": is_fg = True
+        elif decision == "PUNT": is_punt = True
+        # If GO_FOR_IT, we just fall through to standard play logic
 
-    # --- 2. Simulate Play ---
+    # --- 3. Simulate Play ---
     yards_gained = 0
     is_turnover = False
     is_int = False
@@ -398,10 +479,17 @@ def simulate_play(state):
         
     else:
         # Standard offensive play
-        if state["yardline"] >= 80: is_pass = random.random() < 0.35
-        elif state["down"] == 3 and state["distance"] >= 7: is_pass = random.random() < 0.85
-        elif state["down"] == 2 and state["distance"] >= 5: is_pass = random.random() < 0.65
-        else: is_pass = random.random() < 0.50
+        # Short yardage logic: if 3rd/4th & 1-3, 80% run
+        if state["distance"] <= 3 and state["down"] >= 3:
+            is_pass = random.random() < 0.20
+        elif state["yardline"] >= 80: 
+            is_pass = random.random() < 0.35
+        elif state["down"] == 3 and state["distance"] >= 7: 
+            is_pass = random.random() < 0.85
+        elif state["down"] == 2 and state["distance"] >= 5: 
+            is_pass = random.random() < 0.65
+        else: 
+            is_pass = random.random() < 0.50
 
         if is_pass:
             outcome = random.random()
@@ -458,21 +546,44 @@ def simulate_play(state):
         if not is_turnover:
             if new_yardline >= 100:
                 is_td = True
-                
-                # CAP YARDAGE FOR TOUCHDOWNS
                 yards_gained = 100 - state["yardline"]
                 if is_pass:
-                    play_desc = f"Pass complete for {yards_gained} yards. TOUCHDOWN! Extra point is good."
+                    play_desc = f"Pass complete for {yards_gained} yards. TOUCHDOWN! "
                 else:
-                    play_desc = f"Rush for {yards_gained} yards. TOUCHDOWN! Extra point is good."
+                    play_desc = f"Rush for {yards_gained} yards. TOUCHDOWN! "
                 
-                if off_team == state["home"]: state["home_score"] += 7
-                else: state["away_score"] += 7
+                if off_team == state["home"]: state["home_score"] += 6
+                else: state["away_score"] += 6
+                
+                # --- Coach Logic: 2-Point Conversion ---
+                # We handle the XP/2PT logic right here before logging the TD play
+                diff = (state["home_score"] - state["away_score"]) if off_team == state["home"] else (state["away_score"] - state["home_score"])
+                go_for_2 = decide_2pt(diff, state["clock"], state["quarter"], coach_style)
+                
+                if go_for_2:
+                    # Simulate 2-pt conversion
+                    success = random.random() < 0.48 # roughly 48% success rate
+                    if success:
+                        if off_team == state["home"]: state["home_score"] += 2
+                        else: state["away_score"] += 2
+                        play_desc += "2-point conversion is GOOD."
+                    else:
+                        play_desc += "2-point conversion is NO GOOD."
+                else:
+                    # Simulate XP
+                    success = random.random() < 0.94
+                    if success:
+                        if off_team == state["home"]: state["home_score"] += 1
+                        else: state["away_score"] += 1
+                        play_desc += "Extra point is good."
+                    else:
+                        play_desc += "Extra point is NO GOOD."
                 
                 state["stats"][off_team]["1st Downs"] += 1
                 ret = kickoff(state, def_team)
                 play_desc += " " + ret
                 radio_type = "touchdown" if not is_late_game else "late_game_touchdown"
+                
             elif new_yardline <= 0:
                 is_safety = True
                 if def_team == state["home"]: state["home_score"] += 2
@@ -523,7 +634,7 @@ def simulate_play(state):
             state["distance"] = 10
             radio_type = "turnover_downs"
 
-    # --- 3. Log the play using the PRE-PLAY situation ---
+    # --- 4. Log the play using the PRE-PLAY situation ---
     q = state["quarter"]
     q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
     clock_str = f"{pre_clock//60:02d}:{pre_clock%60:02d}"
@@ -540,16 +651,11 @@ def simulate_play(state):
             margin = abs(pre_home_score - pre_away_score)
             score_ctx = f"{leader} leading by {margin}" if off_team == leader else f"{trailer} trailing by {margin}"
 
-        if state["quarter"] == 4:
-            time_ctx = f"{clock_str} remaining in the 4th"
-        elif state["quarter"] > 4:
-            time_ctx = f"{clock_str} remaining in OT"
-        elif state["quarter"] == 1:
-            time_ctx = f"{clock_str} remaining in the 1st"
-        elif state["quarter"] == 2:
-            time_ctx = f"{clock_str} remaining in the 2nd"
-        else:
-            time_ctx = f"{clock_str} remaining in the 3rd"
+        if state["quarter"] == 4: time_ctx = f"{clock_str} remaining in the 4th"
+        elif state["quarter"] > 4: time_ctx = f"{clock_str} remaining in OT"
+        elif state["quarter"] == 1: time_ctx = f"{clock_str} remaining in the 1st"
+        elif state["quarter"] == 2: time_ctx = f"{clock_str} remaining in the 2nd"
+        else: time_ctx = f"{clock_str} remaining in the 3rd"
 
         setup_line = f"{pre_play_down} & {down_str} with {time_ctx}. {score_ctx}."
         
@@ -561,7 +667,7 @@ def simulate_play(state):
 
     state["play_log"].append(log_entry)
 
-    # --- 4. Clock Management ---
+    # --- 5. Clock Management ---
     if is_incomplete or is_fg or is_punt: time_taken = random.randint(5, 10)
     elif is_td or is_safety: time_taken = random.randint(5, 15)
     elif state["down"] in (1, 2) and random.random() < 0.3: time_taken = random.randint(10, 20)
@@ -570,7 +676,7 @@ def simulate_play(state):
     state["clock"] -= time_taken
     if state["clock"] < 0: state["clock"] = 0
 
-    # --- 5. End of Quarter / OT Logic ---
+    # --- 6. End of Quarter / OT Logic ---
     if state["clock"] <= 0:
         if state["quarter"] < 4:
             state["quarter"] += 1
@@ -611,10 +717,14 @@ with col2:
 with col3:
     weather_choice = st.selectbox("Weather", WEATHER_OPTIONS, index=0)
 
-col4, col5 = st.columns(2)
+col4, col5, col6 = st.columns(3)
 with col4:
-    must_win = st.checkbox("Must produce a winner (OT)", value=False)
+    home_coach = st.selectbox("Home Coach", COACHING_PROFILES, index=1)
 with col5:
+    away_coach = st.selectbox("Away Coach", COACHING_PROFILES, index=1)
+with col6:
+    st.write("")
+    must_win = st.checkbox("Must produce a winner (OT)", value=False)
     radio_enabled = st.checkbox("🎙️ Enable Radio Broadcast", value=False)
 
 st.write("")
@@ -623,13 +733,15 @@ if home_team == away_team:
     st.error("Please select two different teams.")
 else:
     if st.button("Start / Reset Game", use_container_width=True, type="primary"):
-        st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win, radio_enabled=radio_enabled)
+        st.session_state.game = init_game(home_team, away_team, weather_choice, home_coach, away_coach, must_win=must_win, radio_enabled=radio_enabled)
         st.rerun()
 
     if "game" not in st.session_state or \
        st.session_state.game["home"] != home_team or \
-       st.session_state.game["away"] != away_team:
-        st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win, radio_enabled=radio_enabled)
+       st.session_state.game["away"] != away_team or \
+       st.session_state.game["home_coach"] != home_coach or \
+       st.session_state.game["away_coach"] != away_coach:
+        st.session_state.game = init_game(home_team, away_team, weather_choice, home_coach, away_coach, must_win=must_win, radio_enabled=radio_enabled)
 
     st.session_state.game["radio_enabled"] = radio_enabled
     game = st.session_state.game
