@@ -34,34 +34,35 @@ WEATHER_OPTIONS = ["Random", "Clear", "Extreme Rain", "Heavy Snow", "Heavy Winds
 
 # ============================================================
 # RADIO BROADCAST PHRASE LIBRARY
+# (Pronouns removed, strictly team-based)
 # ============================================================
 RADIO_LIBRARY = {
     "rush_short": [
         "{team} hands it off up the middle, grinding out {yards} yards.",
-        "A quick dive play for {team}, they pick up {yards} on the ground.",
-        "They try to establish the run, {team} gets {yards} yards.",
+        "A quick dive play for {team}, the offense picks up {yards} on the ground.",
+        "The offense tries to establish the run, {team} gets {yards} yards.",
         "It's a heavy dose of the run game, {team} is stopped for a short gain of {yards}.",
         "{team} keeps it on the ground, pushing the pile forward for {yards}."
     ],
     "rush_medium": [
         "{team} finds a seam! That's a solid pickup of {yards} yards.",
-        "A nice cutback by {team}, they weave through traffic for {yards}.",
+        "A nice cutback by {team}, the runner weaves through traffic for {yards}.",
         "Good blocking up front, {team} rumbles forward for {yards} yards.",
         "{team} lowers the shoulder and drives forward for a gain of {yards}.",
-        "The ground game is working for {team}, they pick up {yards} on that carry."
+        "The ground game is working for {team}, the offense picks up {yards} on that carry."
     ],
     "rush_long": [
         "BREAKS AWAY! {team} bounces it to the outside and takes it for {yards} yards!",
-        "What a run by {team}! They hit the second level and pick up {yards}!",
+        "What a run by {team}! The offense hits the second level and picks up {yards}!",
         "Huge hole! {team} explodes through it for a massive gain of {yards}.",
         "{team} turns on the jets! A spectacular {yards}-yard run!",
-        "They couldn't bring him down! {team} rumbles for {yards} yards down the sideline!"
+        "The defense couldn't bring the runner down! {team} rumbles for {yards} yards down the sideline!"
     ],
     "rush_loss": [
         "Nowhere to go! {team} is swarmed in the backfield for a loss of {yards}.",
         "The defense crashes down, stuffing {team} for a loss of {yards}.",
         "A blown-up play! {team} tries the run but loses {yards} yards.",
-        "Great penetration by {def_team}! They drop {team} for a loss of {yards}.",
+        "Great penetration by {def_team}! The defense drops {team} for a loss of {yards}.",
         "{team} tries to bounce it outside, but the defense is waiting. Loss of {yards}."
     ],
     "pass_short": [
@@ -69,7 +70,7 @@ RADIO_LIBRARY = {
         "A dart over the middle, {team} connects for a short gain of {yards}.",
         "Quick out route, caught by {team} for {yards} yards.",
         "{team} dumps it off to the flat, picking up {yards}.",
-        "High percentage throw for {team}, they get {yards} on the play."
+        "High percentage throw for {team}, the offense gets {yards} on the play."
     ],
     "pass_medium": [
         "{team} drops back and finds an open man, complete for {yards} yards.",
@@ -81,7 +82,7 @@ RADIO_LIBRARY = {
     "pass_deep": [
         "{team} drops back and airs it out! Complete for {yards} yards!",
         "A deep shot by {team}, caught! That's a pickup of {yards}!",
-        "He launches it downfield! {team} comes down with it for a huge gain of {yards}!",
+        "The offense launches it downfield! {team} comes down with it for a huge gain of {yards}!",
         "The defense is burned! {team} connects on a beautiful deep ball for {yards} yards!",
         "BOMB! {team} goes over the top and hits paydirt for {yards} yards!"
     ],
@@ -108,9 +109,9 @@ RADIO_LIBRARY = {
     ],
     "turnover_fumble": [
         "FUMBLE! The ball is loose! {def_team} recovers!",
-        "He coughed it up! {team} loses the football, and {def_team} pounces on it!",
+        "The offense coughed it up! {team} loses the football, and {def_team} pounces on it!",
         "Strip sack! The defense knocks the ball out, and {def_team} recovers!",
-        "Disaster for {team}! They put the ball on the turf, and {def_team} takes it away.",
+        "Disaster for {team}! The offense puts the ball on the turf, and {def_team} takes it away.",
         "What a hit! The ball pops loose, and it's recovered by {def_team}!"
     ],
     "turnover_downs": [
@@ -122,31 +123,31 @@ RADIO_LIBRARY = {
     ],
     "touchdown": [
         "TOUCHDOWN! {team} finds the end zone! The crowd goes absolutely wild!",
-        "HE'S IN! {team} punches it across the goal line for six!",
+        "IN FOR SIX! {team} punches it across the goal line!",
         "PAYDIRT! {team} scores! That's a massive touchdown!",
-        "They break the plane! {team} gets the touchdown, and the extra point is good!",
+        "The offense breaks the plane! {team} gets the touchdown, and the extra point is good!",
         "What a drive by {team}! It's capped off with a touchdown!"
     ],
     "field_goal_made": [
         "The kick is up... and it is GOOD! {team} puts 3 on the board.",
-        "He drills it right down the middle. {team} adds three points.",
+        "The kicker drills it right down the middle. {team} adds three points.",
         "No doubt about that one. Good from {yards} yards out for {team}.",
         "Perfect strike by the kicker! {team} gets the field goal.",
         "It just sneaks inside the upright! {team} is good for three."
     ],
     "field_goal_miss": [
         "The kick is up... and it is NO GOOD! {team} comes away empty-handed.",
-        "He pushes it wide right! A miss for {team}.",
+        "The kicker pushes it wide right! A miss for {team}.",
         "Short! The kick doesn't have the leg, and {team} misses the field goal.",
         "It hits the upright! Unbelievable! {team} misses the kick.",
         "Wide left! {def_team} takes over after the missed field goal by {team}."
     ],
     "safety": [
         "SAFETY! {def_team} pins them in the end zone for two points!",
-        "He's brought down in the end zone! That's a safety for {def_team}!",
+        "The offense is brought down in the end zone! That's a safety for {def_team}!",
         "A massive defensive play! {def_team} gets the safety.",
         "The offensive line collapses, and {team} is taken down for a safety.",
-        "Two points for {def_team} as they trap {team} in their own end zone!"
+        "Two points for {def_team} as the defense traps {team} in their own end zone!"
     ],
     "punt": [
         "{team} sends the punt team out. A good boot, fair catch.",
@@ -158,13 +159,13 @@ RADIO_LIBRARY = {
     "late_game_rush": [
         "They hand it off, and {team} grinds forward for {yards}. The clock is ticking!",
         "{team} keeps it on the ground, picking up {yards}. The defense is desperate to get the ball back!",
-        "A crucial run by {team}! They pick up {yards} and keep the chains moving.",
-        "They are trying to bleed the clock! {team} runs for {yards}.",
+        "A crucial run by {team}! The offense picks up {yards} and keeps the chains moving.",
+        "The offense is trying to bleed the clock! {team} runs for {yards}.",
         "With the game on the line, {team} goes to the ground game for {yards} yards."
     ],
     "late_game_pass": [
         "Under pressure, {team} fires it! Complete for {yards}! A massive play!",
-        "They have to throw it, and {team} delivers a strike for {yards} yards!",
+        "The offense has to throw it, and {team} delivers a strike for {yards} yards!",
         "A clutch throw by {team} on this crucial drive, picking up {yards}!",
         "{team} drops back... steps up... and finds a window for {yards} yards!",
         "The defense knew it was coming, but {team} still completes it for {yards}!"
@@ -174,12 +175,12 @@ RADIO_LIBRARY = {
         "Overthrown! A crucial miss for {team} in this high-pressure moment.",
         "Broken up! {def_team} makes a massive play to deny {team} the completion.",
         "The pass falls to the turf. Incomplete for {team}.",
-        "They couldn't connect! {team} wastes a crucial down."
+        "The offense couldn't connect! {team} wastes a crucial down."
     ],
     "late_game_sack": [
         "MASSIVE SACK! {def_team} comes up with a huge stop, dropping {team} for a loss of {yards}!",
         "The pocket collapses! {def_team} gets the sack at the worst possible time for {team}!",
-        "He goes down! A huge loss of {yards} for {team} as {def_team} brings the heat!",
+        "The offense goes down! A huge loss of {yards} for {team} as {def_team} brings the heat!",
         "SACKED! The clock keeps running, and {team} loses {yards} yards!",
         "A game-changing sack by {def_team}! {team} is pushed back {yards} yards!"
     ],
@@ -187,15 +188,15 @@ RADIO_LIBRARY = {
         "INTERCEPTED! IT'S OVER! {def_team} seals the game with a massive pick!",
         "PICKED OFF! {def_team} comes up with the biggest play of the game, stealing it from {team}!",
         "TURNOVER! The pass is intercepted by {def_team} in the clutch!",
-        "Disaster for {team}! They throw it right to {def_team} in a critical moment!",
+        "Disaster for {team}! The offense throws it right to {def_team} in a critical moment!",
         "INTERCEPTED! {def_team} jumps the route, and the sideline erupts!"
     ],
     "late_game_touchdown": [
         "TOUCHDOWN! {team} takes the lead! What an unbelievable moment!",
-        "HE SCORES! {team} finds the end zone in the clutch! The stadium is shaking!",
+        "IN FOR SIX! {team} finds the end zone in the clutch! The stadium is shaking!",
         "PAYDIRT! {team} punches it in! That could be the dagger!",
         "TOUCHDOWN {team}! A legendary drive capped off with six points!",
-        "They break the plane! {team} scores, and this game has been turned upside down!"
+        "The offense breaks the plane! {team} scores, and this game has been turned upside down!"
     ],
     "late_game_field_goal": [
         "THE KICK IS UP... IT IS GOOD! {team} drills it to take the lead! What a moment!",
@@ -205,7 +206,7 @@ RADIO_LIBRARY = {
         "No doubt about it! The kicker for {team} splits the uprights from {yards} yards out!"
     ],
     "late_game_field_goal_miss": [
-        "HE MISSED IT! The kick is NO GOOD, and {team} is heartbroken!",
+        "MISSED IT! The kick is NO GOOD, and {team} is heartbroken!",
         "WIDE RIGHT! {team} misses the crucial field goal! The defense survives!",
         "The kick is short! {def_team} takes over after a devastating miss for {team}.",
         "IT HITS THE POST! Unbelievable! {team} misses the kick in the clutch!",
@@ -215,7 +216,7 @@ RADIO_LIBRARY = {
         " That moves the chains!",
         " And that's a first down!",
         " Enough for the first down!",
-        " They pick up the crucial first down.",
+        " The offense picks up the crucial first down.",
         ""
     ]
 }
@@ -293,13 +294,8 @@ def weather_pass_penalty(weather):
     return 0
 
 def generate_radio_call(play_type, is_late_game, team, def_team, yards=0):
-    """Selects a random phrase from the library and fills in the variables."""
     key = f"late_game_{play_type}" if is_late_game and f"late_game_{play_type}" in RADIO_LIBRARY else play_type
-    
-    # Fallback mapping if late_game_play_type isn't specifically defined (e.g., standard punt)
-    if key not in RADIO_LIBRARY:
-        key = play_type
-        
+    if key not in RADIO_LIBRARY: key = play_type
     phrase = random.choice(RADIO_LIBRARY.get(key, ["A standard play."]))
     return phrase.format(team=team, def_team=def_team, yards=abs(yards))
 
@@ -317,9 +313,12 @@ def simulate_play(state):
     pre_play_dist = state["distance"]
     pre_play_yard = state["yardline"]
     pre_play_poss = state["possession"]
+    pre_clock = state["clock"]
+    pre_home_score = state["home_score"]
+    pre_away_score = state["away_score"]
 
-    # Determine if it's late game (Q4 or OT, score within 8)
-    is_late_game = (state["quarter"] >= 4 and abs(state["home_score"] - state["away_score"]) <= 8)
+    # Late game definition: Q4 or OT, score within 8 points, AND under 8 minutes (480s)
+    is_late_game = (state["quarter"] >= 4 and abs(state["home_score"] - state["away_score"]) <= 8 and state["clock"] <= 480)
 
     # --- 1. 4th Down Decision ---
     is_fg = False
@@ -521,21 +520,42 @@ def simulate_play(state):
     # --- 3. Log the play using the PRE-PLAY situation ---
     q = state["quarter"]
     q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
-    clock_str = f"{state['clock']//60:02d}:{state['clock']%60:02d}"
+    clock_str = f"{pre_clock//60:02d}:{pre_clock%60:02d}"
     field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist, state["home"], state["away"])
     
     log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
 
-    # Append First Down Modifier to Radio Call if applicable
-    if "FIRST DOWN" in play_desc and radio_type not in ["turnover_int", "turnover_fumble", "turnover_downs"]:
-        radio_type = radio_type # We can just append the modifier later
-        
-    # Generate Radio Call
+    # Build Game Time Context for Radio Call
     if state.get("radio_enabled"):
+        # Determine score context
+        if pre_home_score == pre_away_score:
+            score_ctx = "game tied"
+        else:
+            leader = state["home"] if pre_home_score > pre_away_score else state["away"]
+            trailer = state["away"] if leader == state["home"] else state["home"]
+            margin = abs(pre_home_score - pre_away_score)
+            score_ctx = f"{leader} leading by {margin}" if off_team == leader else f"{trailer} trailing by {margin}"
+
+        # Time context
+        if state["quarter"] == 4:
+            time_ctx = f"{clock_str} remaining in the 4th"
+        elif state["quarter"] > 4:
+            time_ctx = f"{clock_str} remaining in OT"
+        elif state["quarter"] == 1:
+            time_ctx = f"{clock_str} remaining in the 1st"
+        elif state["quarter"] == 2:
+            time_ctx = f"{clock_str} remaining in the 2nd"
+        else:
+            time_ctx = f"{clock_str} remaining in the 3rd"
+
+        setup_line = f"{pre_play_down} & {down_str} with {time_ctx}. {score_ctx}."
+        
+        # Build the action
         radio_text = generate_radio_call(radio_type, is_late_game, off_team, def_team, yards_gained)
         if "FIRST DOWN" in play_desc and "modifier_first_down" in RADIO_LIBRARY:
             radio_text += random.choice(RADIO_LIBRARY["modifier_first_down"])
-        log_entry += f"\n\n🎙️ *\"{radio_text}\"*"
+
+        log_entry += f"\n\n🎙️ *\"{setup_line} {radio_text}\"*"
 
     state["play_log"].append(log_entry)
 
@@ -604,15 +624,12 @@ else:
         st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win, radio_enabled=radio_enabled)
         st.rerun()
 
-    # Initialize state if it doesn't exist or team changed
     if "game" not in st.session_state or \
        st.session_state.game["home"] != home_team or \
        st.session_state.game["away"] != away_team:
         st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win, radio_enabled=radio_enabled)
 
-    # Sync the radio checkbox toggle with active game state without resetting
     st.session_state.game["radio_enabled"] = radio_enabled
-
     game = st.session_state.game
 
     st.markdown("---")
