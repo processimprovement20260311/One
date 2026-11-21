@@ -34,7 +34,6 @@ WEATHER_OPTIONS = ["Random", "Clear", "Extreme Rain", "Heavy Snow", "Heavy Winds
 
 # ============================================================
 # RADIO BROADCAST PHRASE LIBRARY
-# (Pronouns removed, strictly team-based)
 # ============================================================
 RADIO_LIBRARY = {
     "rush_short": [
@@ -317,7 +316,6 @@ def simulate_play(state):
     pre_home_score = state["home_score"]
     pre_away_score = state["away_score"]
 
-    # Late game definition: Q4 or OT, score within 8 points, AND under 8 minutes (480s)
     is_late_game = (state["quarter"] >= 4 and abs(state["home_score"] - state["away_score"]) <= 8 and state["clock"] <= 480)
 
     # --- 1. 4th Down Decision ---
@@ -460,12 +458,20 @@ def simulate_play(state):
         if not is_turnover:
             if new_yardline >= 100:
                 is_td = True
+                
+                # CAP YARDAGE FOR TOUCHDOWNS
+                yards_gained = 100 - state["yardline"]
+                if is_pass:
+                    play_desc = f"Pass complete for {yards_gained} yards. TOUCHDOWN! Extra point is good."
+                else:
+                    play_desc = f"Rush for {yards_gained} yards. TOUCHDOWN! Extra point is good."
+                
                 if off_team == state["home"]: state["home_score"] += 7
                 else: state["away_score"] += 7
-                play_desc += " TOUCHDOWN! Extra point is good. "
+                
                 state["stats"][off_team]["1st Downs"] += 1
                 ret = kickoff(state, def_team)
-                play_desc += ret
+                play_desc += " " + ret
                 radio_type = "touchdown" if not is_late_game else "late_game_touchdown"
             elif new_yardline <= 0:
                 is_safety = True
@@ -525,9 +531,7 @@ def simulate_play(state):
     
     log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
 
-    # Build Game Time Context for Radio Call
     if state.get("radio_enabled"):
-        # Determine score context
         if pre_home_score == pre_away_score:
             score_ctx = "game tied"
         else:
@@ -536,7 +540,6 @@ def simulate_play(state):
             margin = abs(pre_home_score - pre_away_score)
             score_ctx = f"{leader} leading by {margin}" if off_team == leader else f"{trailer} trailing by {margin}"
 
-        # Time context
         if state["quarter"] == 4:
             time_ctx = f"{clock_str} remaining in the 4th"
         elif state["quarter"] > 4:
@@ -550,7 +553,6 @@ def simulate_play(state):
 
         setup_line = f"{pre_play_down} & {down_str} with {time_ctx}. {score_ctx}."
         
-        # Build the action
         radio_text = generate_radio_call(radio_type, is_late_game, off_team, def_team, yards_gained)
         if "FIRST DOWN" in play_desc and "modifier_first_down" in RADIO_LIBRARY:
             radio_text += random.choice(RADIO_LIBRARY["modifier_first_down"])
