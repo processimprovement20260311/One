@@ -33,9 +33,197 @@ TEAM_DISPLAY_LIST = [f"{t} {o:.2f}" for t, o in TEAM_OVERALLS]
 WEATHER_OPTIONS = ["Random", "Clear", "Extreme Rain", "Heavy Snow", "Heavy Winds", "Extreme Cold"]
 
 # ============================================================
+# RADIO BROADCAST PHRASE LIBRARY
+# ============================================================
+RADIO_LIBRARY = {
+    "rush_short": [
+        "{team} hands it off up the middle, grinding out {yards} yards.",
+        "A quick dive play for {team}, they pick up {yards} on the ground.",
+        "They try to establish the run, {team} gets {yards} yards.",
+        "It's a heavy dose of the run game, {team} is stopped for a short gain of {yards}.",
+        "{team} keeps it on the ground, pushing the pile forward for {yards}."
+    ],
+    "rush_medium": [
+        "{team} finds a seam! That's a solid pickup of {yards} yards.",
+        "A nice cutback by {team}, they weave through traffic for {yards}.",
+        "Good blocking up front, {team} rumbles forward for {yards} yards.",
+        "{team} lowers the shoulder and drives forward for a gain of {yards}.",
+        "The ground game is working for {team}, they pick up {yards} on that carry."
+    ],
+    "rush_long": [
+        "BREAKS AWAY! {team} bounces it to the outside and takes it for {yards} yards!",
+        "What a run by {team}! They hit the second level and pick up {yards}!",
+        "Huge hole! {team} explodes through it for a massive gain of {yards}.",
+        "{team} turns on the jets! A spectacular {yards}-yard run!",
+        "They couldn't bring him down! {team} rumbles for {yards} yards down the sideline!"
+    ],
+    "rush_loss": [
+        "Nowhere to go! {team} is swarmed in the backfield for a loss of {yards}.",
+        "The defense crashes down, stuffing {team} for a loss of {yards}.",
+        "A blown-up play! {team} tries the run but loses {yards} yards.",
+        "Great penetration by {def_team}! They drop {team} for a loss of {yards}.",
+        "{team} tries to bounce it outside, but the defense is waiting. Loss of {yards}."
+    ],
+    "pass_short": [
+        "{team} fires a quick screen, complete for {yards} yards.",
+        "A dart over the middle, {team} connects for a short gain of {yards}.",
+        "Quick out route, caught by {team} for {yards} yards.",
+        "{team} dumps it off to the flat, picking up {yards}.",
+        "High percentage throw for {team}, they get {yards} on the play."
+    ],
+    "pass_medium": [
+        "{team} drops back and finds an open man, complete for {yards} yards.",
+        "A strike to the sideline! {team} picks up {yards} yards.",
+        "Beautiful throw and catch for {team}, moving the chains for {yards}.",
+        "The defense left the middle open, {team} takes advantage for {yards} yards.",
+        "{team} threads the needle on that pass, good for {yards} yards."
+    ],
+    "pass_deep": [
+        "{team} drops back and airs it out! Complete for {yards} yards!",
+        "A deep shot by {team}, caught! That's a pickup of {yards}!",
+        "He launches it downfield! {team} comes down with it for a huge gain of {yards}!",
+        "The defense is burned! {team} connects on a beautiful deep ball for {yards} yards!",
+        "BOMB! {team} goes over the top and hits paydirt for {yards} yards!"
+    ],
+    "pass_incomplete": [
+        "Incomplete. {team} couldn't connect on that one.",
+        "The pass falls incomplete, overthrown by {team}.",
+        "Good coverage by {def_team}, forcing the incompletion for {team}.",
+        "{team} fires it out of bounds, incomplete.",
+        "Broken up! The {def_team} defense knocks the pass away from {team}."
+    ],
+    "sack": [
+        "SACKED! {def_team} gets to the quarterback, dropping {team} for a loss of {yards}.",
+        "The pocket collapses! {def_team} brings {team} down for a big loss of {yards}.",
+        "Huge hit! {team} is sacked for a loss of {yards}.",
+        "Nowhere to run! {def_team} wraps up {team} for a sack, a loss of {yards}.",
+        "The blitz gets home! {team} goes down for a loss of {yards}."
+    ],
+    "turnover_int": [
+        "INTERCEPTED! {def_team} takes it away! What a huge momentum swing!",
+        "Picked off! The defense for {def_team} reads it perfectly and steals it from {team}.",
+        "That pass is stolen! {def_team} comes down with the interception!",
+        "A terrible decision by {team}! The ball is intercepted by {def_team}.",
+        "TURNOVER! {def_team} jumps the route and picks off {team}!"
+    ],
+    "turnover_fumble": [
+        "FUMBLE! The ball is loose! {def_team} recovers!",
+        "He coughed it up! {team} loses the football, and {def_team} pounces on it!",
+        "Strip sack! The defense knocks the ball out, and {def_team} recovers!",
+        "Disaster for {team}! They put the ball on the turf, and {def_team} takes it away.",
+        "What a hit! The ball pops loose, and it's recovered by {def_team}!"
+    ],
+    "turnover_downs": [
+        "Turnover on downs! {def_team} makes the crucial stop to take over.",
+        "They go for it, but {team} is stopped short! {def_team} takes over on downs.",
+        "The defense holds! {def_team} stuffs the play and forces the turnover on downs.",
+        "Not enough! {team} fails to convert, and the ball goes to {def_team}.",
+        "Great goal-line stand by {def_team}! {team} is denied on 4th down."
+    ],
+    "touchdown": [
+        "TOUCHDOWN! {team} finds the end zone! The crowd goes absolutely wild!",
+        "HE'S IN! {team} punches it across the goal line for six!",
+        "PAYDIRT! {team} scores! That's a massive touchdown!",
+        "They break the plane! {team} gets the touchdown, and the extra point is good!",
+        "What a drive by {team}! It's capped off with a touchdown!"
+    ],
+    "field_goal_made": [
+        "The kick is up... and it is GOOD! {team} puts 3 on the board.",
+        "He drills it right down the middle. {team} adds three points.",
+        "No doubt about that one. Good from {yards} yards out for {team}.",
+        "Perfect strike by the kicker! {team} gets the field goal.",
+        "It just sneaks inside the upright! {team} is good for three."
+    ],
+    "field_goal_miss": [
+        "The kick is up... and it is NO GOOD! {team} comes away empty-handed.",
+        "He pushes it wide right! A miss for {team}.",
+        "Short! The kick doesn't have the leg, and {team} misses the field goal.",
+        "It hits the upright! Unbelievable! {team} misses the kick.",
+        "Wide left! {def_team} takes over after the missed field goal by {team}."
+    ],
+    "safety": [
+        "SAFETY! {def_team} pins them in the end zone for two points!",
+        "He's brought down in the end zone! That's a safety for {def_team}!",
+        "A massive defensive play! {def_team} gets the safety.",
+        "The offensive line collapses, and {team} is taken down for a safety.",
+        "Two points for {def_team} as they trap {team} in their own end zone!"
+    ],
+    "punt": [
+        "{team} sends the punt team out. A good boot, fair catch.",
+        "The punt is away... a high spiral, fielded cleanly.",
+        "{team} flips the field position with a solid punt.",
+        "Rugby style punt by {team}, the coverage team gets downfield well.",
+        "The punt sails out of bounds, {team} giving the defense a long field."
+    ],
+    "late_game_rush": [
+        "They hand it off, and {team} grinds forward for {yards}. The clock is ticking!",
+        "{team} keeps it on the ground, picking up {yards}. The defense is desperate to get the ball back!",
+        "A crucial run by {team}! They pick up {yards} and keep the chains moving.",
+        "They are trying to bleed the clock! {team} runs for {yards}.",
+        "With the game on the line, {team} goes to the ground game for {yards} yards."
+    ],
+    "late_game_pass": [
+        "Under pressure, {team} fires it! Complete for {yards}! A massive play!",
+        "They have to throw it, and {team} delivers a strike for {yards} yards!",
+        "A clutch throw by {team} on this crucial drive, picking up {yards}!",
+        "{team} drops back... steps up... and finds a window for {yards} yards!",
+        "The defense knew it was coming, but {team} still completes it for {yards}!"
+    ],
+    "late_game_incomplete": [
+        "Incomplete! The clock stops, and {team} is running out of time!",
+        "Overthrown! A crucial miss for {team} in this high-pressure moment.",
+        "Broken up! {def_team} makes a massive play to deny {team} the completion.",
+        "The pass falls to the turf. Incomplete for {team}.",
+        "They couldn't connect! {team} wastes a crucial down."
+    ],
+    "late_game_sack": [
+        "MASSIVE SACK! {def_team} comes up with a huge stop, dropping {team} for a loss of {yards}!",
+        "The pocket collapses! {def_team} gets the sack at the worst possible time for {team}!",
+        "He goes down! A huge loss of {yards} for {team} as {def_team} brings the heat!",
+        "SACKED! The clock keeps running, and {team} loses {yards} yards!",
+        "A game-changing sack by {def_team}! {team} is pushed back {yards} yards!"
+    ],
+    "late_game_interception": [
+        "INTERCEPTED! IT'S OVER! {def_team} seals the game with a massive pick!",
+        "PICKED OFF! {def_team} comes up with the biggest play of the game, stealing it from {team}!",
+        "TURNOVER! The pass is intercepted by {def_team} in the clutch!",
+        "Disaster for {team}! They throw it right to {def_team} in a critical moment!",
+        "INTERCEPTED! {def_team} jumps the route, and the sideline erupts!"
+    ],
+    "late_game_touchdown": [
+        "TOUCHDOWN! {team} takes the lead! What an unbelievable moment!",
+        "HE SCORES! {team} finds the end zone in the clutch! The stadium is shaking!",
+        "PAYDIRT! {team} punches it in! That could be the dagger!",
+        "TOUCHDOWN {team}! A legendary drive capped off with six points!",
+        "They break the plane! {team} scores, and this game has been turned upside down!"
+    ],
+    "late_game_field_goal": [
+        "THE KICK IS UP... IT IS GOOD! {team} drills it to take the lead! What a moment!",
+        "Clutch kick! The kicker for {team} is ice cold, nailing the {yards}-yard field goal!",
+        "It's good! {team} hits the field goal, and the pressure was immense!",
+        "Right down the middle! {team} adds three crucial points!",
+        "No doubt about it! The kicker for {team} splits the uprights from {yards} yards out!"
+    ],
+    "late_game_field_goal_miss": [
+        "HE MISSED IT! The kick is NO GOOD, and {team} is heartbroken!",
+        "WIDE RIGHT! {team} misses the crucial field goal! The defense survives!",
+        "The kick is short! {def_team} takes over after a devastating miss for {team}.",
+        "IT HITS THE POST! Unbelievable! {team} misses the kick in the clutch!",
+        "NO GOOD! A massive sigh of relief for {def_team} as {team} fails to convert."
+    ],
+    "modifier_first_down": [
+        " That moves the chains!",
+        " And that's a first down!",
+        " Enough for the first down!",
+        " They pick up the crucial first down.",
+        ""
+    ]
+}
+
+# ============================================================
 # GAME STATE INITIALIZATION
 # ============================================================
-def init_game(home_team, away_team, weather_choice, must_win=False):
+def init_game(home_team, away_team, weather_choice, must_win=False, radio_enabled=False):
     if weather_choice == "Random":
         r = random.random()
         actual_weather = ("Clear" if r < 0.77 else "Extreme Rain" if r < 0.82 else
@@ -62,27 +250,23 @@ def init_game(home_team, away_team, weather_choice, must_win=False):
         "game_over": False,
         "must_win": must_win,
         "overtime": False,
+        "radio_enabled": radio_enabled,
     }
 
 # ============================================================
 # HELPERS
 # ============================================================
 def format_situation(possession, yardline, distance, home_team, away_team):
-    """Formats the field position and down & distance correctly."""
     if yardline > 50:
         opp = away_team if possession == home_team else home_team
         field_str = f"{opp} {100 - yardline}"
     else:
         field_str = f"{possession} {yardline}"
-        
     dist_str = "Goal" if distance >= (100 - yardline) else str(distance)
     return field_str, dist_str
 
 def kickoff(state, receiving_team):
-    """Simulate a kickoff and return."""
     state["possession"] = receiving_team
-    
-    # 60% touchback, 38% return, 2% return TD
     r = random.random()
     if r < 0.60:
         state["yardline"] = 25
@@ -93,12 +277,11 @@ def kickoff(state, receiving_team):
         state["stats"][receiving_team]["Return Yds"] += ret_yards
         ret_desc = f"Returned {ret_yards} yards to the {receiving_team} {ret_yards}."
     else:
-        state["yardline"] = 25 # Reset for PAT
+        state["yardline"] = 25
         state["stats"][receiving_team]["Return TDs"] += 1
         if receiving_team == state["home"]: state["home_score"] += 7
         else: state["away_score"] += 7
         ret_desc = "TOUCHDOWN ON THE RETURN!"
-        
     state["down"] = 1
     state["distance"] = 10
     return ret_desc
@@ -108,6 +291,17 @@ def weather_pass_penalty(weather):
     if weather == "Heavy Snow": return -6
     if weather == "Extreme Cold": return -2
     return 0
+
+def generate_radio_call(play_type, is_late_game, team, def_team, yards=0):
+    """Selects a random phrase from the library and fills in the variables."""
+    key = f"late_game_{play_type}" if is_late_game and f"late_game_{play_type}" in RADIO_LIBRARY else play_type
+    
+    # Fallback mapping if late_game_play_type isn't specifically defined (e.g., standard punt)
+    if key not in RADIO_LIBRARY:
+        key = play_type
+        
+    phrase = random.choice(RADIO_LIBRARY.get(key, ["A standard play."]))
+    return phrase.format(team=team, def_team=def_team, yards=abs(yards))
 
 # ============================================================
 # PLAY ENGINE
@@ -119,16 +313,17 @@ def simulate_play(state):
     def_team = state["away"] if off_team == state["home"] else state["home"]
     pass_penalty = weather_pass_penalty(state["weather"])
 
-    # Capture pre-play snapshot for the log
     pre_play_down = state["down"]
     pre_play_dist = state["distance"]
     pre_play_yard = state["yardline"]
     pre_play_poss = state["possession"]
 
-    # --- 1. 4th Down Decision (Evaluated BEFORE the play starts) ---
+    # Determine if it's late game (Q4 or OT, score within 8)
+    is_late_game = (state["quarter"] >= 4 and abs(state["home_score"] - state["away_score"]) <= 8)
+
+    # --- 1. 4th Down Decision ---
     is_fg = False
     is_punt = False
-    
     if state["down"] == 4:
         trailing = (
             (off_team == state["home"] and state["home_score"] < state["away_score"]) or
@@ -138,14 +333,11 @@ def simulate_play(state):
             (state["distance"] <= 2 and state["yardline"] >= 60) or
             (state["quarter"] >= 4 and state["clock"] < 300 and trailing)
         )
-
         if not go_for_it:
-            if state["yardline"] >= 62:
-                is_fg = True
-            else:
-                is_punt = True
+            if state["yardline"] >= 62: is_fg = True
+            else: is_punt = True
 
-    # --- 2. Simulate the actual play ---
+    # --- 2. Simulate Play ---
     yards_gained = 0
     is_turnover = False
     is_int = False
@@ -153,6 +345,7 @@ def simulate_play(state):
     is_safety = False
     is_incomplete = False
     play_desc = ""
+    radio_type = ""
 
     if is_fg:
         fg_dist = (100 - state["yardline"]) + 17
@@ -165,19 +358,20 @@ def simulate_play(state):
             play_desc = f"{fg_dist}-yard field goal is GOOD. "
             ret = kickoff(state, def_team)
             play_desc += ret
+            radio_type = "field_goal_made" if not is_late_game else "late_game_field_goal"
         else:
             play_desc = f"{fg_dist}-yard field goal is NO GOOD."
             state["possession"] = def_team
-            spot_of_kick_from_offense = state["yardline"] - 7
-            new_yardline_from_def = 100 - spot_of_kick_from_offense
-            state["yardline"] = max(20, new_yardline_from_def)
+            spot_of_kick = state["yardline"] - 7
+            state["yardline"] = max(20, 100 - spot_of_kick)
             state["down"] = 1
             state["distance"] = 10
+            radio_type = "field_goal_miss" if not is_late_game else "late_game_field_goal_miss"
+            
     elif is_punt:
         punt_yards = random.randint(35, 55)
         landing = state["yardline"] + punt_yards
         state["possession"] = def_team
-        
         if landing >= 100:
             state["yardline"] = 20
             play_desc = f"Punt for {punt_yards} yards. Touchback."
@@ -189,8 +383,7 @@ def simulate_play(state):
                 play_desc = f"Punt for {punt_yards} yards. Fair catch at the {catch_yard}."
             elif r < 0.97:
                 ret_yards = random.randint(2, 15)
-                final_yard = catch_yard + ret_yards
-                if final_yard >= 100: final_yard = 99
+                final_yard = min(99, catch_yard + ret_yards)
                 state["yardline"] = final_yard
                 state["stats"][def_team]["Return Yds"] += ret_yards
                 play_desc = f"Punt for {punt_yards} yards. Returned {ret_yards} yards to the {final_yard}."
@@ -202,19 +395,16 @@ def simulate_play(state):
                 play_desc = f"Punt for {punt_yards} yards. RETURNED FOR A TOUCHDOWN!"
                 ret = kickoff(state, off_team)
                 play_desc += " " + ret
-
         state["down"] = 1
         state["distance"] = 10
+        radio_type = "punt"
+        
     else:
         # Standard offensive play
-        if state["yardline"] >= 80:
-            is_pass = random.random() < 0.35
-        elif state["down"] == 3 and state["distance"] >= 7:
-            is_pass = random.random() < 0.85
-        elif state["down"] == 2 and state["distance"] >= 5:
-            is_pass = random.random() < 0.65
-        else:
-            is_pass = random.random() < 0.50
+        if state["yardline"] >= 80: is_pass = random.random() < 0.35
+        elif state["down"] == 3 and state["distance"] >= 7: is_pass = random.random() < 0.85
+        elif state["down"] == 2 and state["distance"] >= 5: is_pass = random.random() < 0.65
+        else: is_pass = random.random() < 0.50
 
         if is_pass:
             outcome = random.random()
@@ -222,37 +412,45 @@ def simulate_play(state):
                 yards_gained = 0
                 is_incomplete = True
                 play_desc = "Incomplete pass."
+                radio_type = "pass_incomplete" if not is_late_game else "late_game_incomplete"
             elif outcome < 0.375:
                 yards_gained = 0
                 is_turnover = True
                 is_int = True
                 play_desc = f"INTERCEPTION by {def_team}!"
+                radio_type = "turnover_int" if not is_late_game else "late_game_interception"
             elif outcome < 0.44:
                 sack_loss = random.randint(3, 7)
-                if state["yardline"] - sack_loss <= 2:
-                    sack_loss = max(0, state["yardline"] - 2)
+                if state["yardline"] - sack_loss <= 2: sack_loss = max(0, state["yardline"] - 2)
                 yards_gained = -sack_loss
-                play_desc = (f"Sacked for a loss of {sack_loss} yards." if sack_loss > 0
-                             else "Sack blown dead at the line.")
+                play_desc = f"Sacked for a loss of {sack_loss} yards." if sack_loss > 0 else "Sack blown dead at the line."
+                radio_type = "sack" if not is_late_game else "late_game_sack"
             else:
                 yards_gained = max(1, random.randint(3, 25) + pass_penalty)
                 play_desc = f"Pass complete for {yards_gained} yards."
                 state["stats"][off_team]["Pass Yds"] += yards_gained
+                if yards_gained >= 20: radio_type = "pass_deep" if not is_late_game else "late_game_pass"
+                elif yards_gained >= 8: radio_type = "pass_medium" if not is_late_game else "late_game_pass"
+                else: radio_type = "pass_short" if not is_late_game else "late_game_pass"
         else:
             outcome = random.random()
             if outcome < 0.005:
                 yards_gained = 0
                 is_turnover = True
                 play_desc = f"FUMBLE! Recovered by {def_team}."
+                radio_type = "turnover_fumble"
             else:
                 yards_gained = random.randint(-2, 12)
                 if yards_gained < 0:
                     play_desc = f"Rush for a loss of {abs(yards_gained)} yards."
+                    radio_type = "rush_loss" if not is_late_game else "late_game_rush"
                 else:
                     play_desc = f"Rush for {yards_gained} yards."
-                state["stats"][off_team]["Rush Yds"] += yards_gained
+                    state["stats"][off_team]["Rush Yds"] += yards_gained
+                    if yards_gained >= 15: radio_type = "rush_long" if not is_late_game else "late_game_rush"
+                    elif yards_gained >= 5: radio_type = "rush_medium" if not is_late_game else "late_game_rush"
+                    else: radio_type = "rush_short" if not is_late_game else "late_game_rush"
 
-        # Safety valve
         if not is_turnover and (state["yardline"] + yards_gained) <= 0:
             if random.random() < 0.85:
                 yards_gained = max(0, 1 - state["yardline"])
@@ -260,7 +458,6 @@ def simulate_play(state):
 
         new_yardline = state["yardline"] + yards_gained
 
-        # Apply Result
         if not is_turnover:
             if new_yardline >= 100:
                 is_td = True
@@ -270,6 +467,7 @@ def simulate_play(state):
                 state["stats"][off_team]["1st Downs"] += 1
                 ret = kickoff(state, def_team)
                 play_desc += ret
+                radio_type = "touchdown" if not is_late_game else "late_game_touchdown"
             elif new_yardline <= 0:
                 is_safety = True
                 if def_team == state["home"]: state["home_score"] += 2
@@ -279,6 +477,7 @@ def simulate_play(state):
                 state["yardline"] = 40
                 state["down"] = 1
                 state["distance"] = 10
+                radio_type = "safety"
             else:
                 state["yardline"] = new_yardline
                 if yards_gained >= state["distance"]:
@@ -290,7 +489,6 @@ def simulate_play(state):
                     state["down"] += 1
                     state["distance"] -= yards_gained
 
-        # Turnovers
         if is_turnover:
             state["stats"][off_team]["Turnovers"] += 1
             if is_int:
@@ -303,47 +501,49 @@ def simulate_play(state):
                 else:
                     ret = random.randint(0, 20)
                     spot = state["yardline"] + ret
-                    if spot >= 100:
-                        state["possession"] = def_team
-                        state["yardline"] = 20
-                    else:
-                        state["possession"] = def_team
-                        state["yardline"] = 100 - spot
+                    state["possession"] = def_team
+                    state["yardline"] = 20 if spot >= 100 else 100 - spot
                     state["down"] = 1
                     state["distance"] = 10
             else:
                 state["possession"] = def_team
-                state["yardline"] = 100 - state["yardline"]
-                if state["yardline"] < 1: state["yardline"] = 1
+                state["yardline"] = max(1, 100 - state["yardline"])
                 state["down"] = 1
                 state["distance"] = 10
         elif state["down"] > 4:
             play_desc += " Turnover on downs."
             state["possession"] = def_team
-            state["yardline"] = 100 - state["yardline"]
-            if state["yardline"] < 1: state["yardline"] = 1
+            state["yardline"] = max(1, 100 - state["yardline"])
             state["down"] = 1
             state["distance"] = 10
+            radio_type = "turnover_downs"
 
     # --- 3. Log the play using the PRE-PLAY situation ---
     q = state["quarter"]
     q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
     clock_str = f"{state['clock']//60:02d}:{state['clock']%60:02d}"
-    
     field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist, state["home"], state["away"])
     
     log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
+
+    # Append First Down Modifier to Radio Call if applicable
+    if "FIRST DOWN" in play_desc and radio_type not in ["turnover_int", "turnover_fumble", "turnover_downs"]:
+        radio_type = radio_type # We can just append the modifier later
+        
+    # Generate Radio Call
+    if state.get("radio_enabled"):
+        radio_text = generate_radio_call(radio_type, is_late_game, off_team, def_team, yards_gained)
+        if "FIRST DOWN" in play_desc and "modifier_first_down" in RADIO_LIBRARY:
+            radio_text += random.choice(RADIO_LIBRARY["modifier_first_down"])
+        log_entry += f"\n\n🎙️ *\"{radio_text}\"*"
+
     state["play_log"].append(log_entry)
 
     # --- 4. Clock Management ---
-    if is_incomplete or is_fg or is_punt:
-        time_taken = random.randint(5, 10)
-    elif is_td or is_safety:
-        time_taken = random.randint(5, 15)
-    elif state["down"] in (1, 2) and random.random() < 0.3:
-        time_taken = random.randint(10, 20)
-    else:
-        time_taken = random.randint(25, 40)
+    if is_incomplete or is_fg or is_punt: time_taken = random.randint(5, 10)
+    elif is_td or is_safety: time_taken = random.randint(5, 15)
+    elif state["down"] in (1, 2) and random.random() < 0.3: time_taken = random.randint(10, 20)
+    else: time_taken = random.randint(25, 40)
     
     state["clock"] -= time_taken
     if state["clock"] < 0: state["clock"] = 0
@@ -376,7 +576,7 @@ def simulate_play(state):
 # ============================================================
 st.subheader("Game Setup")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     home_display = st.selectbox("Home Team", TEAM_DISPLAY_LIST, index=0)
@@ -389,8 +589,11 @@ with col2:
 with col3:
     weather_choice = st.selectbox("Weather", WEATHER_OPTIONS, index=0)
 
+col4, col5 = st.columns(2)
 with col4:
     must_win = st.checkbox("Must produce a winner (OT)", value=False)
+with col5:
+    radio_enabled = st.checkbox("🎙️ Enable Radio Broadcast", value=False)
 
 st.write("")
 
@@ -398,13 +601,17 @@ if home_team == away_team:
     st.error("Please select two different teams.")
 else:
     if st.button("Start / Reset Game", use_container_width=True, type="primary"):
-        st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win)
+        st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win, radio_enabled=radio_enabled)
         st.rerun()
 
+    # Initialize state if it doesn't exist or team changed
     if "game" not in st.session_state or \
        st.session_state.game["home"] != home_team or \
        st.session_state.game["away"] != away_team:
-        st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win)
+        st.session_state.game = init_game(home_team, away_team, weather_choice, must_win=must_win, radio_enabled=radio_enabled)
+
+    # Sync the radio checkbox toggle with active game state without resetting
+    st.session_state.game["radio_enabled"] = radio_enabled
 
     game = st.session_state.game
 
@@ -471,7 +678,7 @@ else:
 
     with log_col:
         st.subheader("Play-by-Play Log")
-        log_container = st.container(height=500)
+        log_container = st.container(height=600)
         with log_container:
             for entry in reversed(game["play_log"]):
-                st.text(entry)
+                st.markdown(entry)
