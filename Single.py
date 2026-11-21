@@ -67,6 +67,17 @@ def init_game(home_team, away_team, weather_choice, must_win=False):
 # ============================================================
 # HELPERS
 # ============================================================
+def format_situation(possession, yardline, distance, home_team, away_team):
+    """Formats the field position and down & distance correctly."""
+    if yardline > 50:
+        opp = away_team if possession == home_team else home_team
+        field_str = f"{opp} {100 - yardline}"
+    else:
+        field_str = f"{possession} {yardline}"
+        
+    dist_str = "Goal" if distance >= (100 - yardline) else str(distance)
+    return field_str, dist_str
+
 def kickoff(state, receiving_team):
     """Set up a kickoff for the receiving team."""
     state["possession"] = receiving_team
@@ -280,13 +291,8 @@ def simulate_play(state):
     q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
     clock_str = f"{state['clock']//60:02d}:{state['clock']%60:02d}"
     
-    if pre_play_yard > 50:
-        opp = state["away"] if pre_play_poss == state["home"] else state["home"]
-        field_str = f"{opp} {100 - pre_play_yard}"
-    else:
-        field_str = f"{pre_play_poss} {pre_play_yard}"
-        
-    down_str = "Goal" if pre_play_dist >= pre_play_yard else str(pre_play_dist)
+    # Use the helper to get the correct field string and distance string
+    field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist, state["home"], state["away"])
     
     log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
     state["play_log"].append(log_entry)
@@ -381,14 +387,8 @@ else:
 
     situation = st.empty()
     if not game["game_over"]:
-        poss = game["possession"]
-        yard = game["yardline"]
-        if yard > 50:
-            opp = game["away"] if poss == game["home"] else game["home"]
-            field_pos = f"{opp} {100-yard}"
-        else:
-            field_pos = f"{poss} {yard}"
-        situation.info(f"**{poss}** has the ball at the **{field_pos}** | **{game['down']} & {game['distance']}**")
+        field_str, dist_str = format_situation(game["possession"], game["yardline"], game["distance"], game["home"], game["away"])
+        situation.info(f"**{game['possession']}** has the ball at the **{field_str}** | **{game['down']} & {dist_str}**")
     else:
         if game["home_score"] > game["away_score"]: winner = game["home"]
         elif game["away_score"] > game["home_score"]: winner = game["away"]
