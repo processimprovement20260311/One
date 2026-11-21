@@ -225,11 +225,8 @@ RADIO_LIBRARY = {
 # COACHING LOGIC ENGINE
 # ============================================================
 def decide_4th_down(yardline, distance, score_diff, clock, quarter, coach_style):
-    """Returns: 'GO_FOR_IT', 'FIELD_GOAL', or 'PUNT'"""
-    # Losing late - must be aggressive
     if quarter >= 4 and clock < 300 and score_diff < 0:
-        if yardline >= 40: # Past own 40
-            return "GO_FOR_IT"
+        if yardline >= 40: return "GO_FOR_IT"
             
     if coach_style == "Analytics (Aggressive)":
         if distance <= 3:
@@ -241,43 +238,28 @@ def decide_4th_down(yardline, distance, score_diff, clock, quarter, coach_style)
             return "PUNT"
             
     elif coach_style == "Conservative":
-        if distance <= 1 and yardline >= 95:
-            return "GO_FOR_IT"
-        if yardline >= 75: # Inside opponent 25
-            return "FIELD_GOAL"
+        if distance <= 1 and yardline >= 95: return "GO_FOR_IT"
+        if yardline >= 75: return "FIELD_GOAL"
         return "PUNT"
         
     else: # Traditional (Balanced)
-        if distance <= 2 and yardline >= 60:
-            return "GO_FOR_IT"
-        if distance <= 3 and yardline >= 80: # Red zone short
-            return "GO_FOR_IT"
-        if yardline >= 62: # FG Range
-            return "FIELD_GOAL"
+        if distance <= 2 and yardline >= 60: return "GO_FOR_IT"
+        if distance <= 3 and yardline >= 80: return "GO_FOR_IT"
+        if yardline >= 62: return "FIELD_GOAL"
         return "PUNT"
 
 def decide_2pt(score_diff, clock, quarter, coach_style):
-    """Returns True if going for 2, False for XP"""
     if coach_style == "Conservative":
-        # Only go for 2 if down by 2 late
         return (score_diff == -2 and quarter >= 4 and clock < 120)
-        
     elif coach_style == "Analytics (Aggressive)":
-        # Chase points based on standard chart
-        if score_diff in [-2, -5, -8, 1, 4]: 
-            return True
+        if score_diff in [-2, -5, -8, 1, 4]: return True
         return False
-        
     else: # Traditional
-        if score_diff in [-2, -8] and quarter >= 4 and clock < 300:
-            return True
+        if score_diff in [-2, -8] and quarter >= 4 and clock < 300: return True
         return False
 
 def decide_take_knee(yardline, score_diff, clock, opp_timeouts):
-    """Returns True if taking a knee"""
-    # Standard victory formation logic
-    if score_diff > 0 and clock < 120 and opp_timeouts == 0:
-        return True
+    if score_diff > 0 and clock < 120 and opp_timeouts == 0: return True
     return False
 
 # ============================================================
@@ -303,6 +285,7 @@ def init_game(home_team, away_team, weather_choice, home_coach, away_coach, must
         "yardline": 25,
         "home_timeouts": 3, "away_timeouts": 3,
         "play_log": [],
+        "scoring_log": [],
         "stats": {
             home_team: {"Pass Yds": 0, "Rush Yds": 0, "1st Downs": 0, "Turnovers": 0,
                         "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0},
@@ -381,7 +364,7 @@ def simulate_play(state):
 
     is_late_game = (state["quarter"] >= 4 and abs(state["home_score"] - state["away_score"]) <= 8 and state["clock"] <= 480)
 
-    # --- 1. Coach Logic: Check for Take a Knee ---
+    # --- 1. Coach Logic: Take a Knee ---
     opp_timeouts = state["away_timeouts"] if off_team == state["home"] else state["home_timeouts"]
     score_diff = (state["home_score"] - state["away_score"]) if off_team == state["home"] else (state["away_score"] - state["home_score"])
     
@@ -397,7 +380,7 @@ def simulate_play(state):
         field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist, state["home"], state["away"])
         
         state["play_log"].append(f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}")
-        state["clock"] -= 40 # Kneel takes 40 seconds
+        state["clock"] -= 40 
         if state["clock"] < 0: state["clock"] = 0
         if state["down"] > 4:
             state["down"] = 1
@@ -406,14 +389,13 @@ def simulate_play(state):
             state["yardline"] = 100 - state["yardline"]
         return
 
-    # --- 2. Coach Logic: 4th Down Decision ---
+    # --- 2. Coach Logic: 4th Down ---
     is_fg = False
     is_punt = False
     if state["down"] == 4:
         decision = decide_4th_down(state["yardline"], state["distance"], score_diff, state["clock"], state["quarter"], coach_style)
         if decision == "FIELD_GOAL": is_fg = True
         elif decision == "PUNT": is_punt = True
-        # If GO_FOR_IT, we just fall through to standard play logic
 
     # --- 3. Simulate Play ---
     yards_gained = 0
@@ -434,6 +416,17 @@ def simulate_play(state):
             else: state["away_score"] += 3
             state["stats"][off_team]["FG Made"] += 1
             play_desc = f"{fg_dist}-yard field goal is GOOD. "
+            
+            # LOG SCORE
+            state["scoring_log"].append({
+                "Quarter": q_label if 'q_label' in locals() else f"Q{state['quarter']}",
+                "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                "Team": off_team,
+                "Type": "Field Goal",
+                "Desc": f"{fg_dist}-yard field goal",
+                "Score": f"{state['away_score']} - {state['home_score']}"
+            })
+
             ret = kickoff(state, def_team)
             play_desc += ret
             radio_type = "field_goal_made" if not is_late_game else "late_game_field_goal"
@@ -471,6 +464,17 @@ def simulate_play(state):
                 if def_team == state["home"]: state["home_score"] += 7
                 else: state["away_score"] += 7
                 play_desc = f"Punt for {punt_yards} yards. RETURNED FOR A TOUCHDOWN!"
+                
+                # LOG SCORE
+                state["scoring_log"].append({
+                    "Quarter": q_label if 'q_label' in locals() else f"Q{state['quarter']}",
+                    "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                    "Team": def_team,
+                    "Type": "Touchdown",
+                    "Desc": f"{punt_yards}-yard punt return TD",
+                    "Score": f"{state['away_score']} - {state['home_score']}"
+                })
+
                 ret = kickoff(state, off_team)
                 play_desc += " " + ret
         state["down"] = 1
@@ -479,17 +483,11 @@ def simulate_play(state):
         
     else:
         # Standard offensive play
-        # Short yardage logic: if 3rd/4th & 1-3, 80% run
-        if state["distance"] <= 3 and state["down"] >= 3:
-            is_pass = random.random() < 0.20
-        elif state["yardline"] >= 80: 
-            is_pass = random.random() < 0.35
-        elif state["down"] == 3 and state["distance"] >= 7: 
-            is_pass = random.random() < 0.85
-        elif state["down"] == 2 and state["distance"] >= 5: 
-            is_pass = random.random() < 0.65
-        else: 
-            is_pass = random.random() < 0.50
+        if state["distance"] <= 3 and state["down"] >= 3: is_pass = random.random() < 0.20
+        elif state["yardline"] >= 80: is_pass = random.random() < 0.35
+        elif state["down"] == 3 and state["distance"] >= 7: is_pass = random.random() < 0.85
+        elif state["down"] == 2 and state["distance"] >= 5: is_pass = random.random() < 0.65
+        else: is_pass = random.random() < 0.50
 
         if is_pass:
             outcome = random.random()
@@ -547,38 +545,46 @@ def simulate_play(state):
             if new_yardline >= 100:
                 is_td = True
                 yards_gained = 100 - state["yardline"]
-                if is_pass:
-                    play_desc = f"Pass complete for {yards_gained} yards. TOUCHDOWN! "
-                else:
-                    play_desc = f"Rush for {yards_gained} yards. TOUCHDOWN! "
+                if is_pass: play_desc = f"Pass complete for {yards_gained} yards. TOUCHDOWN! "
+                else: play_desc = f"Rush for {yards_gained} yards. TOUCHDOWN! "
                 
                 if off_team == state["home"]: state["home_score"] += 6
                 else: state["away_score"] += 6
                 
                 # --- Coach Logic: 2-Point Conversion ---
-                # We handle the XP/2PT logic right here before logging the TD play
                 diff = (state["home_score"] - state["away_score"]) if off_team == state["home"] else (state["away_score"] - state["home_score"])
                 go_for_2 = decide_2pt(diff, state["clock"], state["quarter"], coach_style)
                 
+                conv_text = ""
                 if go_for_2:
-                    # Simulate 2-pt conversion
-                    success = random.random() < 0.48 # roughly 48% success rate
+                    success = random.random() < 0.48 
                     if success:
                         if off_team == state["home"]: state["home_score"] += 2
                         else: state["away_score"] += 2
-                        play_desc += "2-point conversion is GOOD."
+                        conv_text = "2-pt conversion GOOD"
                     else:
-                        play_desc += "2-point conversion is NO GOOD."
+                        conv_text = "2-pt conversion NO GOOD"
                 else:
-                    # Simulate XP
                     success = random.random() < 0.94
                     if success:
                         if off_team == state["home"]: state["home_score"] += 1
                         else: state["away_score"] += 1
-                        play_desc += "Extra point is good."
+                        conv_text = "XP GOOD"
                     else:
-                        play_desc += "Extra point is NO GOOD."
+                        conv_text = "XP NO GOOD"
                 
+                play_desc += f"{conv_text}. "
+                
+                # LOG SCORE
+                state["scoring_log"].append({
+                    "Quarter": f"Q{state['quarter']}",
+                    "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                    "Team": off_team,
+                    "Type": "Touchdown",
+                    "Desc": f"{yards_gained}-yard {'Pass' if is_pass else 'Run'} TD ({conv_text})",
+                    "Score": f"{state['away_score']} - {state['home_score']}"
+                })
+
                 state["stats"][off_team]["1st Downs"] += 1
                 ret = kickoff(state, def_team)
                 play_desc += " " + ret
@@ -594,6 +600,16 @@ def simulate_play(state):
                 state["down"] = 1
                 state["distance"] = 10
                 radio_type = "safety"
+
+                # LOG SCORE
+                state["scoring_log"].append({
+                    "Quarter": f"Q{state['quarter']}",
+                    "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                    "Team": def_team,
+                    "Type": "Safety",
+                    "Desc": "Safety",
+                    "Score": f"{state['away_score']} - {state['home_score']}"
+                })
             else:
                 state["yardline"] = new_yardline
                 if yards_gained >= state["distance"]:
@@ -612,6 +628,17 @@ def simulate_play(state):
                     if def_team == state["home"]: state["home_score"] += 7
                     else: state["away_score"] += 7
                     play_desc += " Returned for a TOUCHDOWN! "
+                    
+                    # LOG SCORE
+                    state["scoring_log"].append({
+                        "Quarter": f"Q{state['quarter']}",
+                        "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                        "Team": def_team,
+                        "Type": "Touchdown",
+                        "Desc": "Interception return TD",
+                        "Score": f"{state['away_score']} - {state['home_score']}"
+                    })
+
                     ret = kickoff(state, off_team)
                     play_desc += ret
                 else:
@@ -634,7 +661,7 @@ def simulate_play(state):
             state["distance"] = 10
             radio_type = "turnover_downs"
 
-    # --- 4. Log the play using the PRE-PLAY situation ---
+    # --- 4. Log the play ---
     q = state["quarter"]
     q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
     clock_str = f"{pre_clock//60:02d}:{pre_clock%60:02d}"
@@ -643,8 +670,7 @@ def simulate_play(state):
     log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
 
     if state.get("radio_enabled"):
-        if pre_home_score == pre_away_score:
-            score_ctx = "game tied"
+        if pre_home_score == pre_away_score: score_ctx = "game tied"
         else:
             leader = state["home"] if pre_home_score > pre_away_score else state["away"]
             trailer = state["away"] if leader == state["home"] else state["home"]
@@ -658,11 +684,9 @@ def simulate_play(state):
         else: time_ctx = f"{clock_str} remaining in the 3rd"
 
         setup_line = f"{pre_play_down} & {down_str} with {time_ctx}. {score_ctx}."
-        
         radio_text = generate_radio_call(radio_type, is_late_game, off_team, def_team, yards_gained)
         if "FIRST DOWN" in play_desc and "modifier_first_down" in RADIO_LIBRARY:
             radio_text += random.choice(RADIO_LIBRARY["modifier_first_down"])
-
         log_entry += f"\n\n🎙️ *\"{setup_line} {radio_text}\"*"
 
     state["play_log"].append(log_entry)
@@ -676,7 +700,7 @@ def simulate_play(state):
     state["clock"] -= time_taken
     if state["clock"] < 0: state["clock"] = 0
 
-    # --- 6. End of Quarter / OT Logic ---
+    # --- 6. End of Quarter ---
     if state["clock"] <= 0:
         if state["quarter"] < 4:
             state["quarter"] += 1
@@ -806,6 +830,16 @@ else:
                 game["home"]: game["stats"][game["home"]][stat]
             })
         st.dataframe(pd.DataFrame(box_data), hide_index=True, use_container_width=True)
+        
+        st.subheader("Scoring Summary")
+        if len(game["scoring_log"]) > 0:
+            # Convert to DataFrame and format for display
+            score_df = pd.DataFrame(game["scoring_log"])
+            # Reorder columns to match the broadcast style (Quarter, Time, Team, Type, Desc, Score)
+            score_df = score_df[["Quarter", "Time", "Team", "Type", "Desc", "Score"]]
+            st.dataframe(score_df, hide_index=True, use_container_width=True)
+        else:
+            st.info("No scoring plays yet.")
 
     with log_col:
         st.subheader("Play-by-Play Log")
