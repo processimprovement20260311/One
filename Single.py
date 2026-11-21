@@ -55,9 +55,9 @@ def init_game(home_team, away_team, weather_choice, must_win=False):
         "play_log": [],
         "stats": {
             home_team: {"Pass Yds": 0, "Rush Yds": 0, "1st Downs": 0, "Turnovers": 0,
-                        "FG Made": 0, "FG Att": 0},
+                        "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0},
             away_team: {"Pass Yds": 0, "Rush Yds": 0, "1st Downs": 0, "Turnovers": 0,
-                        "FG Made": 0, "FG Att": 0}
+                        "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0}
         },
         "game_over": False,
         "must_win": must_win,
@@ -79,14 +79,29 @@ def format_situation(possession, yardline, distance, home_team, away_team):
     return field_str, dist_str
 
 def kickoff(state, receiving_team):
-    """Set up a kickoff for the receiving team."""
+    """Simulate a kickoff and return."""
     state["possession"] = receiving_team
-    if random.random() < 0.60:
-        state["yardline"] = 25  # touchback
+    
+    # 60% touchback, 38% return, 2% return TD
+    r = random.random()
+    if r < 0.60:
+        state["yardline"] = 25
+        ret_desc = "Touchback."
+    elif r < 0.98:
+        ret_yards = random.randint(15, 35)
+        state["yardline"] = ret_yards
+        state["stats"][receiving_team]["Return Yds"] += ret_yards
+        ret_desc = f"Returned {ret_yards} yards to the {receiving_team} {ret_yards}."
     else:
-        state["yardline"] = random.randint(20, 40)  # return
+        state["yardline"] = 25 # Reset for PAT
+        state["stats"][receiving_team]["Return TDs"] += 1
+        if receiving_team == state["home"]: state["home_score"] += 7
+        else: state["away_score"] += 7
+        ret_desc = "TOUCHDOWN ON THE RETURN!"
+        
     state["down"] = 1
     state["distance"] = 10
+    return ret_desc
 
 def weather_pass_penalty(weather):
     if weather in ["Extreme Rain", "Heavy Winds"]: return -3
@@ -147,25 +162,47 @@ def simulate_play(state):
             if off_team == state["home"]: state["home_score"] += 3
             else: state["away_score"] += 3
             state["stats"][off_team]["FG Made"] += 1
-            play_desc = f"{fg_dist}-yard field goal is GOOD."
-            kickoff(state, def_team)
+            play_desc = f"{fg_dist}-yard field goal is GOOD. "
+            ret = kickoff(state, def_team)
+            play_desc += ret
         else:
             play_desc = f"{fg_dist}-yard field goal is NO GOOD."
             state["possession"] = def_team
-            miss_spot = 100 - state["yardline"]
-            state["yardline"] = max(20, miss_spot)
+            spot_of_kick_from_offense = state["yardline"] - 7
+            new_yardline_from_def = 100 - spot_of_kick_from_offense
+            state["yardline"] = max(20, new_yardline_from_def)
             state["down"] = 1
             state["distance"] = 10
     elif is_punt:
         punt_yards = random.randint(35, 55)
         landing = state["yardline"] + punt_yards
         state["possession"] = def_team
+        
         if landing >= 100:
             state["yardline"] = 20
             play_desc = f"Punt for {punt_yards} yards. Touchback."
         else:
-            state["yardline"] = 100 - landing
-            play_desc = f"Punt for {punt_yards} yards. Fair catch."
+            catch_yard = 100 - landing
+            r = random.random()
+            if r < 0.25:
+                state["yardline"] = catch_yard
+                play_desc = f"Punt for {punt_yards} yards. Fair catch at the {catch_yard}."
+            elif r < 0.97:
+                ret_yards = random.randint(2, 15)
+                final_yard = catch_yard + ret_yards
+                if final_yard >= 100: final_yard = 99
+                state["yardline"] = final_yard
+                state["stats"][def_team]["Return Yds"] += ret_yards
+                play_desc = f"Punt for {punt_yards} yards. Returned {ret_yards} yards to the {final_yard}."
+            else:
+                state["yardline"] = 25
+                state["stats"][def_team]["Return TDs"] += 1
+                if def_team == state["home"]: state["home_score"] += 7
+                else: state["away_score"] += 7
+                play_desc = f"Punt for {punt_yards} yards. RETURNED FOR A TOUCHDOWN!"
+                ret = kickoff(state, off_team)
+                play_desc += " " + ret
+
         state["down"] = 1
         state["distance"] = 10
     else:
@@ -229,9 +266,10 @@ def simulate_play(state):
                 is_td = True
                 if off_team == state["home"]: state["home_score"] += 7
                 else: state["away_score"] += 7
-                play_desc += " TOUCHDOWN! Extra point is good."
+                play_desc += " TOUCHDOWN! Extra point is good. "
                 state["stats"][off_team]["1st Downs"] += 1
-                kickoff(state, def_team)
+                ret = kickoff(state, def_team)
+                play_desc += ret
             elif new_yardline <= 0:
                 is_safety = True
                 if def_team == state["home"]: state["home_score"] += 2
@@ -259,8 +297,9 @@ def simulate_play(state):
                 if random.random() < 0.12:
                     if def_team == state["home"]: state["home_score"] += 7
                     else: state["away_score"] += 7
-                    play_desc += " Returned for a TOUCHDOWN!"
-                    kickoff(state, off_team)
+                    play_desc += " Returned for a TOUCHDOWN! "
+                    ret = kickoff(state, off_team)
+                    play_desc += ret
                 else:
                     ret = random.randint(0, 20)
                     spot = state["yardline"] + ret
@@ -291,7 +330,6 @@ def simulate_play(state):
     q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
     clock_str = f"{state['clock']//60:02d}:{state['clock']%60:02d}"
     
-    # Use the helper to get the correct field string and distance string
     field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist, state["home"], state["away"])
     
     log_entry = f"{q_label} {clock_str} | {pre_play_poss} ({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
@@ -423,7 +461,7 @@ else:
     with stat_col:
         st.subheader("Box Score")
         box_data = []
-        for stat in ["Pass Yds", "Rush Yds", "1st Downs", "Turnovers", "FG Made", "FG Att"]:
+        for stat in ["Pass Yds", "Rush Yds", "1st Downs", "Turnovers", "FG Made", "FG Att", "Return Yds", "Return TDs"]:
             box_data.append({
                 "Stat": stat,
                 game["away"]: game["stats"][game["away"]][stat],
