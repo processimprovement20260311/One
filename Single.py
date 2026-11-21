@@ -310,7 +310,7 @@ def format_situation(possession, yardline, distance, home_team, away_team):
     dist_str = "Goal" if distance >= (100 - yardline) else str(distance)
     return field_str, dist_str
 
-def kickoff(state, receiving_team):
+def kickoff(state, receiving_team, clock, quarter):
     state["possession"] = receiving_team
     r = random.random()
     if r < 0.60:
@@ -327,6 +327,17 @@ def kickoff(state, receiving_team):
         if receiving_team == state["home"]: state["home_score"] += 7
         else: state["away_score"] += 7
         ret_desc = "TOUCHDOWN ON THE RETURN!"
+        
+        # Log special teams TD
+        state["scoring_log"].append({
+            "Quarter": f"Q{quarter}",
+            "Time": f"{clock//60:02d}:{clock%60:02d}",
+            "Team": receiving_team,
+            "Type": "Touchdown",
+            "Desc": "Kickoff return TD (XP Good)",
+            "Score": f"{state['away_score']} - {state['home_score']}"
+        })
+        
     state["down"] = 1
     state["distance"] = 10
     return ret_desc
@@ -359,6 +370,7 @@ def simulate_play(state):
     pre_play_yard = state["yardline"]
     pre_play_poss = state["possession"]
     pre_clock = state["clock"]
+    pre_quarter = state["quarter"]
     pre_home_score = state["home_score"]
     pre_away_score = state["away_score"]
 
@@ -372,7 +384,6 @@ def simulate_play(state):
         state["down"] += 1
         state["yardline"] -= 1
         play_desc = f"{off_team} takes a knee. The clock winds down."
-        radio_type = "punt"
         
         q = state["quarter"]
         q_label = f"OT{ q - 4 }" if q > 4 else f"Q{q}"
@@ -417,9 +428,8 @@ def simulate_play(state):
             state["stats"][off_team]["FG Made"] += 1
             play_desc = f"{fg_dist}-yard field goal is GOOD. "
             
-            # LOG SCORE
             state["scoring_log"].append({
-                "Quarter": q_label if 'q_label' in locals() else f"Q{state['quarter']}",
+                "Quarter": f"Q{pre_quarter}",
                 "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
                 "Team": off_team,
                 "Type": "Field Goal",
@@ -427,7 +437,7 @@ def simulate_play(state):
                 "Score": f"{state['away_score']} - {state['home_score']}"
             })
 
-            ret = kickoff(state, def_team)
+            ret = kickoff(state, def_team, pre_clock, pre_quarter)
             play_desc += ret
             radio_type = "field_goal_made" if not is_late_game else "late_game_field_goal"
         else:
@@ -465,17 +475,16 @@ def simulate_play(state):
                 else: state["away_score"] += 7
                 play_desc = f"Punt for {punt_yards} yards. RETURNED FOR A TOUCHDOWN!"
                 
-                # LOG SCORE
                 state["scoring_log"].append({
-                    "Quarter": q_label if 'q_label' in locals() else f"Q{state['quarter']}",
+                    "Quarter": f"Q{pre_quarter}",
                     "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
                     "Team": def_team,
                     "Type": "Touchdown",
-                    "Desc": f"{punt_yards}-yard punt return TD",
+                    "Desc": f"{punt_yards}-yard punt return TD (XP Good)",
                     "Score": f"{state['away_score']} - {state['home_score']}"
                 })
 
-                ret = kickoff(state, off_team)
+                ret = kickoff(state, off_team, pre_clock, pre_quarter)
                 play_desc += " " + ret
         state["down"] = 1
         state["distance"] = 10
@@ -575,9 +584,8 @@ def simulate_play(state):
                 
                 play_desc += f"{conv_text}. "
                 
-                # LOG SCORE
                 state["scoring_log"].append({
-                    "Quarter": f"Q{state['quarter']}",
+                    "Quarter": f"Q{pre_quarter}",
                     "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
                     "Team": off_team,
                     "Type": "Touchdown",
@@ -586,7 +594,7 @@ def simulate_play(state):
                 })
 
                 state["stats"][off_team]["1st Downs"] += 1
-                ret = kickoff(state, def_team)
+                ret = kickoff(state, def_team, pre_clock, pre_quarter)
                 play_desc += " " + ret
                 radio_type = "touchdown" if not is_late_game else "late_game_touchdown"
                 
@@ -601,9 +609,8 @@ def simulate_play(state):
                 state["distance"] = 10
                 radio_type = "safety"
 
-                # LOG SCORE
                 state["scoring_log"].append({
-                    "Quarter": f"Q{state['quarter']}",
+                    "Quarter": f"Q{pre_quarter}",
                     "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
                     "Team": def_team,
                     "Type": "Safety",
@@ -629,17 +636,16 @@ def simulate_play(state):
                     else: state["away_score"] += 7
                     play_desc += " Returned for a TOUCHDOWN! "
                     
-                    # LOG SCORE
                     state["scoring_log"].append({
-                        "Quarter": f"Q{state['quarter']}",
+                        "Quarter": f"Q{pre_quarter}",
                         "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
                         "Team": def_team,
                         "Type": "Touchdown",
-                        "Desc": "Interception return TD",
+                        "Desc": "Interception return TD (XP Good)",
                         "Score": f"{state['away_score']} - {state['home_score']}"
                     })
 
-                    ret = kickoff(state, off_team)
+                    ret = kickoff(state, off_team, pre_clock, pre_quarter)
                     play_desc += ret
                 else:
                     ret = random.randint(0, 20)
@@ -833,9 +839,7 @@ else:
         
         st.subheader("Scoring Summary")
         if len(game["scoring_log"]) > 0:
-            # Convert to DataFrame and format for display
             score_df = pd.DataFrame(game["scoring_log"])
-            # Reorder columns to match the broadcast style (Quarter, Time, Team, Type, Desc, Score)
             score_df = score_df[["Quarter", "Time", "Team", "Type", "Desc", "Score"]]
             st.dataframe(score_df, hide_index=True, use_container_width=True)
         else:
