@@ -288,9 +288,11 @@ def init_game(home_team, away_team, weather_choice, home_coach, away_coach, must
         "scoring_log": [],
         "stats": {
             home_team: {"Pass Yds": 0, "Rush Yds": 0, "1st Downs": 0, "Turnovers": 0,
-                        "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0},
+                        "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0,
+                        "Def Return Yds": 0},
             away_team: {"Pass Yds": 0, "Rush Yds": 0, "1st Downs": 0, "Turnovers": 0,
-                        "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0}
+                        "FG Made": 0, "FG Att": 0, "Return Yds": 0, "Return TDs": 0,
+                        "Def Return Yds": 0}
         },
         "game_over": False,
         "must_win": must_win,
@@ -742,6 +744,7 @@ def apply_manual_play(state, parsed):
       fumble: bool
       fumble_return_td: bool
       int_return_td: bool
+      int_return_yards: int
       fg_made: bool
       punt_yards: int
     """
@@ -885,7 +888,11 @@ def apply_manual_play(state, parsed):
         elif pt == "interception":
             is_turnover = True
             is_int = True
+            int_ret_yds = parsed.get("int_return_yards", 0)
             play_desc = f"INTERCEPTION by {def_team}!"
+            if int_ret_yds > 0:
+                state["stats"][def_team]["Def Return Yds"] += int_ret_yds
+                play_desc += f" Returned {int_ret_yds} yards."
             radio_type = "turnover_int" if not is_late_game else "late_game_interception"
         elif pt == "fumble":
             is_turnover = True
@@ -930,7 +937,7 @@ def apply_manual_play(state, parsed):
                 play_desc += f" FUMBLE! Recovered by {def_team}."
                 radio_type = "turnover_fumble"
 
-        if not is_turnover and not is_incomplete:
+        if not is_turnover:
             new_yardline = state["yardline"] + yards_gained
 
             if new_yardline >= 100:
@@ -1020,7 +1027,11 @@ def apply_manual_play(state, parsed):
                 radio_type = "late_game_touchdown" if is_late_game else "touchdown"
             else:
                 state["possession"] = def_team
-                state["yardline"] = max(1, 100 - state["yardline"])
+                ret_yds = parsed.get("int_return_yards", 0) if is_int else 0
+                if ret_yds > 0:
+                    state["yardline"] = max(1, 100 - (state["yardline"] + ret_yds))
+                else:
+                    state["yardline"] = max(1, 100 - state["yardline"])
                 state["down"] = 1
                 state["distance"] = 10
 
@@ -1214,7 +1225,7 @@ else:
 
     manual = {"play_type": None, "yards": 0, "fumble": False,
               "fumble_return_td": False, "int_return_td": False,
-              "fg_made": True, "punt_yards": 45}
+              "int_return_yards": 0, "fg_made": True, "punt_yards": 45}
 
     with manual_cols[1]:
         if selected_play in ("Run", "Pass (complete)"):
@@ -1243,6 +1254,9 @@ else:
                 manual["fumble_return_td"] = st.checkbox(
                     "Returned for TD", disabled=game["game_over"], key="manual_fumble_td")
         elif selected_play == "Interception":
+            manual["int_return_yards"] = st.number_input(
+                "Return yards", min_value=0, max_value=99, value=0,
+                disabled=game["game_over"], key="manual_int_return_yards")
             manual["int_return_td"] = st.checkbox(
                 "Returned for TD", disabled=game["game_over"], key="manual_int_td")
         elif selected_play == "Field goal":
@@ -1280,7 +1294,7 @@ else:
     with stat_col:
         st.subheader("Box Score")
         box_data = []
-        for stat in ["Pass Yds", "Rush Yds", "1st Downs", "Turnovers", "FG Made", "FG Att", "Return Yds", "Return TDs"]:
+        for stat in ["Pass Yds", "Rush Yds", "1st Downs", "Turnovers", "FG Made", "FG Att", "Return Yds", "Return TDs", "Def Return Yds"]:
             box_data.append({
                 "Stat": stat,
                 game["away"]: game["stats"][game["away"]][stat],
