@@ -730,6 +730,373 @@ def simulate_play(state):
             state["play_log"].append("--- Overtime score — Game Over. ---")
 
 # ============================================================
+# MANUAL PLAY ENGINE
+# ============================================================
+def apply_manual_play(state, parsed):
+    """
+    Apply a manually-selected play result using the same downstream logic as simulate_play.
+    `parsed` is a dict with keys:
+      play_type: "run" | "pass" | "pass_incomplete" | "sack" | "interception" |
+                 "fumble" | "safety" | "kneel" | "field_goal" | "punt"
+      yards: int
+      fumble: bool
+      fumble_return_td: bool
+      int_return_td: bool
+      fg_made: bool
+      punt_yards: int
+    """
+    if state["game_over"]:
+        return
+
+    off_team = state["possession"]
+    def_team = state["away"] if off_team == state["home"] else state["home"]
+    coach_style = state["home_coach"] if off_team == state["home"] else state["away_coach"]
+
+    pre_play_down = state["down"]
+    pre_play_dist = state["distance"]
+    pre_play_yard = state["yardline"]
+    pre_play_poss = state["possession"]
+    pre_clock = state["clock"]
+    pre_quarter = state["quarter"]
+    pre_home_score = state["home_score"]
+    pre_away_score = state["away_score"]
+
+    is_late_game = (state["quarter"] >= 4
+                    and abs(state["home_score"] - state["away_score"]) <= 8
+                    and state["clock"] <= 480)
+
+    pt = parsed["play_type"]
+    yards_gained = parsed.get("yards", 0)
+    is_turnover = False
+    is_int = False
+    is_fumble = False
+    is_td = False
+    is_safety = False
+    is_incomplete = False
+    radio_type = ""
+    play_desc = ""
+
+    # ---------- FIELD GOAL ----------
+    if pt == "field_goal":
+        fg_dist = (100 - state["yardline"]) + 17
+        state["stats"][off_team]["FG Att"] += 1
+        if parsed.get("fg_made", True):
+            if off_team == state["home"]: state["home_score"] += 3
+            else: state["away_score"] += 3
+            state["stats"][off_team]["FG Made"] += 1
+            play_desc = f"{fg_dist}-yard field goal is GOOD. "
+            state["scoring_log"].append({
+                "Quarter": f"Q{pre_quarter}",
+                "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                "Team": off_team, "Type": "Field Goal",
+                "Desc": f"{fg_dist}-yard field goal",
+                "Score": f"{state['away_score']} - {state['home_score']}"
+            })
+            ret = kickoff(state, def_team, pre_clock, pre_quarter)
+            play_desc += ret
+            radio_type = "late_game_field_goal" if is_late_game else "field_goal_made"
+        else:
+            play_desc = f"{fg_dist}-yard field goal is NO GOOD."
+            state["possession"] = def_team
+            spot_of_kick = state["yardline"] - 7
+            state["yardline"] = max(20, 100 - spot_of_kick)
+            state["down"] = 1
+            state["distance"] = 10
+            radio_type = "late_game_field_goal_miss" if is_late_game else "field_goal_miss"
+
+    # ---------- PUNT ----------
+    elif pt == "punt":
+        punt_yards = parsed.get("punt_yards", 45)
+        landing = state["yardline"] + punt_yards
+        state["possession"] = def_team
+        if landing >= 100:
+            state["yardline"] = 20
+            play_desc = f"Punt for {punt_yards} yards. Touchback."
+        else:
+            state["yardline"] = 100 - landing
+            play_desc = f"Punt for {punt_yards} yards."
+        state["down"] = 1
+        state["distance"] = 10
+        radio_type = "punt"
+
+    # ---------- KNEEL ----------
+    elif pt == "kneel":
+        state["down"] += 1
+        state["yardline"] = max(1, state["yardline"] - 1)
+        play_desc = f"{off_team} takes a knee."
+        state["clock"] -= 40
+        if state["clock"] < 0: state["clock"] = 0
+        if state["down"] > 4:
+            state["down"] = 1
+            state["distance"] = 10
+            state["possession"] = def_team
+            state["yardline"] = max(1, 100 - state["yardline"])
+        q = state["quarter"]
+        q_label = f"OT{q - 4}" if q > 4 else f"Q{q}"
+        clock_str = f"{pre_clock//60:02d}:{pre_clock%60:02d}"
+        field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist,
+                                               state["home"], state["away"])
+        state["play_log"].append(
+            f"{q_label} {clock_str} | {pre_play_poss} "
+            f"({pre_play_down} & {down_str} at {field_str}) - {play_desc}"
+        )
+        if state["clock"] <= 0:
+            if state["quarter"] < 4:
+                state["quarter"] += 1
+                state["clock"] = 900
+                state["play_log"].append(f"--- End of Q{state['quarter']-1}. Start of Q{state['quarter']}. ---")
+            elif (state["home_score"] == state["away_score"] and state["must_win"] and not state["overtime"]):
+                state["overtime"] = True
+                state["quarter"] = 5
+                state["clock"] = 600
+                state["play_log"].append("--- End of regulation. Overtime! ---")
+            elif state["overtime"] and state["home_score"] == state["away_score"]:
+                state["clock"] = 600
+                state["play_log"].append("--- End of OT period. Another OT period! ---")
+            else:
+                state["game_over"] = True
+                state["play_log"].append("--- End of Game. ---")
+        return
+
+    # ---------- SAFETY ----------
+    elif pt == "safety":
+        is_safety = True
+        if def_team == state["home"]: state["home_score"] += 2
+        else: state["away_score"] += 2
+        play_desc = "SAFETY! 2 points."
+        state["possession"] = def_team
+        state["yardline"] = 40
+        state["down"] = 1
+        state["distance"] = 10
+        radio_type = "safety"
+        state["scoring_log"].append({
+            "Quarter": f"Q{pre_quarter}",
+            "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+            "Team": def_team, "Type": "Safety", "Desc": "Safety",
+            "Score": f"{state['away_score']} - {state['home_score']}"
+        })
+
+    # ---------- STANDARD OFFENSIVE PLAY ----------
+    else:
+        if pt == "pass_incomplete":
+            is_incomplete = True
+            play_desc = "Incomplete pass."
+            radio_type = "late_game_incomplete" if is_late_game else "pass_incomplete"
+        elif pt == "interception":
+            is_turnover = True
+            is_int = True
+            play_desc = f"INTERCEPTION by {def_team}!"
+            radio_type = "turnover_int" if not is_late_game else "late_game_interception"
+        elif pt == "fumble":
+            is_turnover = True
+            is_fumble = True
+            play_desc = f"FUMBLE! Recovered by {def_team}."
+            radio_type = "turnover_fumble"
+        elif pt == "sack":
+            yards_gained = -abs(parsed.get("yards", 5))
+            play_desc = f"Sacked for a loss of {abs(yards_gained)} yards."
+            radio_type = "late_game_sack" if is_late_game else "sack"
+            if parsed.get("fumble", False):
+                is_turnover = True
+                is_fumble = True
+                play_desc += f" FUMBLE! Recovered by {def_team}."
+                radio_type = "turnover_fumble"
+        elif pt == "pass":
+            yards_gained = parsed.get("yards", 0)
+            play_desc = f"Pass complete for {yards_gained} yards."
+            state["stats"][off_team]["Pass Yds"] += max(0, yards_gained)
+            if yards_gained >= 20: radio_type = "late_game_pass" if is_late_game else "pass_deep"
+            elif yards_gained >= 8: radio_type = "late_game_pass" if is_late_game else "pass_medium"
+            else: radio_type = "late_game_pass" if is_late_game else "pass_short"
+            if parsed.get("fumble", False):
+                is_turnover = True
+                is_fumble = True
+                play_desc += f" FUMBLE! Recovered by {def_team}."
+                radio_type = "turnover_fumble"
+        elif pt == "run":
+            yards_gained = parsed.get("yards", 0)
+            if yards_gained < 0:
+                play_desc = f"Rush for a loss of {abs(yards_gained)} yards."
+                radio_type = "rush_loss" if not is_late_game else "late_game_rush"
+            else:
+                play_desc = f"Rush for {yards_gained} yards."
+                state["stats"][off_team]["Rush Yds"] += yards_gained
+                if yards_gained >= 15: radio_type = "rush_long" if not is_late_game else "late_game_rush"
+                elif yards_gained >= 5: radio_type = "rush_medium" if not is_late_game else "late_game_rush"
+                else: radio_type = "rush_short" if not is_late_game else "late_game_rush"
+            if parsed.get("fumble", False):
+                is_turnover = True
+                is_fumble = True
+                play_desc += f" FUMBLE! Recovered by {def_team}."
+                radio_type = "turnover_fumble"
+
+        if not is_turnover and not is_incomplete:
+            new_yardline = state["yardline"] + yards_gained
+
+            if new_yardline >= 100:
+                is_td = True
+                yards_gained = 100 - state["yardline"]
+                play_desc = play_desc.replace(f"for {parsed.get('yards', 0)} yards",
+                                              f"for {yards_gained} yards") \
+                                     + " TOUCHDOWN! "
+                if off_team == state["home"]: state["home_score"] += 6
+                else: state["away_score"] += 6
+
+                diff = (state["home_score"] - state["away_score"]) if off_team == state["home"] \
+                       else (state["away_score"] - state["home_score"])
+                go_for_2 = decide_2pt(diff, state["clock"], state["quarter"], coach_style)
+                conv_text = ""
+                if go_for_2:
+                    if random.random() < 0.48:
+                        if off_team == state["home"]: state["home_score"] += 2
+                        else: state["away_score"] += 2
+                        conv_text = "2-pt conversion GOOD"
+                    else:
+                        conv_text = "2-pt conversion NO GOOD"
+                else:
+                    if random.random() < 0.94:
+                        if off_team == state["home"]: state["home_score"] += 1
+                        else: state["away_score"] += 1
+                        conv_text = "XP GOOD"
+                    else:
+                        conv_text = "XP NO GOOD"
+                play_desc += f"{conv_text}. "
+                state["scoring_log"].append({
+                    "Quarter": f"Q{pre_quarter}",
+                    "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                    "Team": off_team, "Type": "Touchdown",
+                    "Desc": f"{yards_gained}-yard {'Pass' if pt=='pass' else 'Run'} TD ({conv_text})",
+                    "Score": f"{state['away_score']} - {state['home_score']}"
+                })
+                state["stats"][off_team]["1st Downs"] += 1
+                ret = kickoff(state, def_team, pre_clock, pre_quarter)
+                play_desc += ret
+                radio_type = "late_game_touchdown" if is_late_game else "touchdown"
+
+            elif new_yardline <= 0:
+                is_safety = True
+                if def_team == state["home"]: state["home_score"] += 2
+                else: state["away_score"] += 2
+                play_desc += " SAFETY! 2 points."
+                state["possession"] = def_team
+                state["yardline"] = 40
+                state["down"] = 1
+                state["distance"] = 10
+                radio_type = "safety"
+                state["scoring_log"].append({
+                    "Quarter": f"Q{pre_quarter}",
+                    "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                    "Team": def_team, "Type": "Safety", "Desc": "Safety",
+                    "Score": f"{state['away_score']} - {state['home_score']}"
+                })
+
+            else:
+                state["yardline"] = new_yardline
+                if yards_gained >= state["distance"]:
+                    state["down"] = 1
+                    state["distance"] = 10
+                    state["stats"][off_team]["1st Downs"] += 1
+                    play_desc += " FIRST DOWN."
+                else:
+                    state["down"] += 1
+                    state["distance"] -= yards_gained
+
+        if is_turnover:
+            state["stats"][off_team]["Turnovers"] += 1
+            return_td = parsed.get("int_return_td", False) if is_int else parsed.get("fumble_return_td", False)
+            if return_td:
+                if def_team == state["home"]: state["home_score"] += 7
+                else: state["away_score"] += 7
+                play_desc += " Returned for a TOUCHDOWN! "
+                state["scoring_log"].append({
+                    "Quarter": f"Q{pre_quarter}",
+                    "Time": f"{pre_clock//60:02d}:{pre_clock%60:02d}",
+                    "Team": def_team, "Type": "Touchdown",
+                    "Desc": ("Interception" if is_int else "Fumble") + " return TD (XP Good)",
+                    "Score": f"{state['away_score']} - {state['home_score']}"
+                })
+                ret = kickoff(state, off_team, pre_clock, pre_quarter)
+                play_desc += ret
+                radio_type = "late_game_touchdown" if is_late_game else "touchdown"
+            else:
+                state["possession"] = def_team
+                state["yardline"] = max(1, 100 - state["yardline"])
+                state["down"] = 1
+                state["distance"] = 10
+
+        if not is_turnover and not is_td and not is_safety and state["down"] > 4:
+            play_desc += " Turnover on downs."
+            state["possession"] = def_team
+            state["yardline"] = max(1, 100 - state["yardline"])
+            state["down"] = 1
+            state["distance"] = 10
+            radio_type = "turnover_downs"
+
+    # ---------- LOG THE PLAY ----------
+    q = state["quarter"]
+    q_label = f"OT{q - 4}" if q > 4 else f"Q{q}"
+    clock_str = f"{pre_clock//60:02d}:{pre_clock%60:02d}"
+    field_str, down_str = format_situation(pre_play_poss, pre_play_yard, pre_play_dist,
+                                           state["home"], state["away"])
+    log_entry = (f"{q_label} {clock_str} | {pre_play_poss} "
+                 f"({pre_play_down} & {down_str} at {field_str}) - {play_desc}")
+
+    if state.get("radio_enabled") and radio_type:
+        if pre_home_score == pre_away_score:
+            score_ctx = "game tied"
+        else:
+            leader = state["home"] if pre_home_score > pre_away_score else state["away"]
+            margin = abs(pre_home_score - pre_away_score)
+            score_ctx = f"{leader} leading by {margin}" if off_team == leader else f"{leader} leading by {margin}"
+        if state["quarter"] == 4: time_ctx = f"{clock_str} remaining in the 4th"
+        elif state["quarter"] > 4: time_ctx = f"{clock_str} remaining in OT"
+        elif state["quarter"] == 1: time_ctx = f"{clock_str} remaining in the 1st"
+        elif state["quarter"] == 2: time_ctx = f"{clock_str} remaining in the 2nd"
+        else: time_ctx = f"{clock_str} remaining in the 3rd"
+        setup_line = f"{pre_play_down} & {down_str} with {time_ctx}. {score_ctx}."
+        radio_text = generate_radio_call(radio_type, is_late_game, off_team, def_team, yards_gained)
+        if "FIRST DOWN" in play_desc and "modifier_first_down" in RADIO_LIBRARY:
+            radio_text += random.choice(RADIO_LIBRARY["modifier_first_down"])
+        log_entry += f"\n\n🎙️ *\"{setup_line} {radio_text}\"*"
+
+    state["play_log"].append(log_entry)
+
+    # ---------- CLOCK ----------
+    if is_incomplete or pt in ("field_goal", "punt"):
+        time_taken = random.randint(5, 10)
+    elif is_td or is_safety:
+        time_taken = random.randint(5, 15)
+    elif state["down"] in (1, 2) and random.random() < 0.3:
+        time_taken = random.randint(10, 20)
+    else:
+        time_taken = random.randint(25, 40)
+    state["clock"] -= time_taken
+    if state["clock"] < 0: state["clock"] = 0
+
+    # ---------- END OF QUARTER / OT ----------
+    if state["clock"] <= 0:
+        if state["quarter"] < 4:
+            state["quarter"] += 1
+            state["clock"] = 900
+            state["play_log"].append(f"--- End of Q{state['quarter']-1}. Start of Q{state['quarter']}. ---")
+        elif (state["home_score"] == state["away_score"] and state["must_win"] and not state["overtime"]):
+            state["overtime"] = True
+            state["quarter"] = 5
+            state["clock"] = 600
+            state["play_log"].append("--- End of regulation. Overtime! ---")
+        elif state["overtime"] and state["home_score"] == state["away_score"]:
+            state["clock"] = 600
+            state["play_log"].append("--- End of OT period. Another OT period! ---")
+        else:
+            state["game_over"] = True
+            state["play_log"].append("--- End of Game. ---")
+
+    if state["overtime"] and not state["game_over"]:
+        if is_td or is_safety or pt == "field_goal":
+            state["game_over"] = True
+            state["play_log"].append("--- Overtime score — Game Over. ---")
+
+# ============================================================
 # UI & STREAMLIT LOGIC
 # ============================================================
 st.subheader("Game Setup")
@@ -821,6 +1188,90 @@ else:
         if st.button("⏩ Sim Rest of Game", use_container_width=True, disabled=game["game_over"]):
             while not game["game_over"]: simulate_play(game)
             st.rerun()
+
+    # ============================================================
+    # MANUAL PLAY ENTRY
+    # ============================================================
+    st.markdown("---")
+    st.markdown("**🎮 Manual Play Entry**")
+
+    on_fourth = (game["down"] == 4)
+
+    base_plays = ["Run", "Pass (complete)", "Pass incomplete", "Sack",
+                  "Interception", "Fumble (lost)", "Safety", "Kneel"]
+    fourth_plays = ["Field goal", "Punt"]
+    play_options = base_plays + (fourth_plays if on_fourth else [])
+
+    manual_cols = st.columns([2, 2, 2, 1])
+
+    with manual_cols[0]:
+        selected_play = st.selectbox(
+            "Play type",
+            play_options,
+            disabled=game["game_over"],
+            key="manual_play_type",
+        )
+
+    manual = {"play_type": None, "yards": 0, "fumble": False,
+              "fumble_return_td": False, "int_return_td": False,
+              "fg_made": True, "punt_yards": 45}
+
+    with manual_cols[1]:
+        if selected_play in ("Run", "Pass (complete)"):
+            manual["yards"] = st.number_input(
+                "Yards gained", min_value=-10, max_value=99, value=5,
+                disabled=game["game_over"], key="manual_yards")
+        elif selected_play == "Sack":
+            manual["yards"] = -abs(st.number_input(
+                "Yards lost", min_value=1, max_value=15, value=5,
+                disabled=game["game_over"], key="manual_sack_yards"))
+        elif selected_play == "Punt":
+            manual["punt_yards"] = st.number_input(
+                "Punt yards", min_value=10, max_value=70, value=45,
+                disabled=game["game_over"], key="manual_punt_yards")
+        elif selected_play == "Field goal":
+            fg_dist = (100 - game["yardline"]) + 17
+            st.info(f"FG distance: **{fg_dist} yds**")
+        else:
+            st.write("")
+
+    with manual_cols[2]:
+        if selected_play in ("Run", "Pass (complete)", "Sack"):
+            manual["fumble"] = st.checkbox(
+                "Fumble (lost)", disabled=game["game_over"], key="manual_fumble")
+            if manual["fumble"]:
+                manual["fumble_return_td"] = st.checkbox(
+                    "Returned for TD", disabled=game["game_over"], key="manual_fumble_td")
+        elif selected_play == "Interception":
+            manual["int_return_td"] = st.checkbox(
+                "Returned for TD", disabled=game["game_over"], key="manual_int_td")
+        elif selected_play == "Field goal":
+            manual["fg_made"] = st.checkbox(
+                "Kick is good", value=True, disabled=game["game_over"], key="manual_fg_made")
+        else:
+            st.write("")
+
+    with manual_cols[3]:
+        st.write("")
+        apply_clicked = st.button("▶ Apply", use_container_width=True,
+                                  disabled=game["game_over"])
+
+    if apply_clicked:
+        label_map = {
+            "Run": "run",
+            "Pass (complete)": "pass",
+            "Pass incomplete": "pass_incomplete",
+            "Sack": "sack",
+            "Interception": "interception",
+            "Fumble (lost)": "fumble",
+            "Safety": "safety",
+            "Kneel": "kneel",
+            "Field goal": "field_goal",
+            "Punt": "punt",
+        }
+        manual["play_type"] = label_map[selected_play]
+        apply_manual_play(game, manual)
+        st.rerun()
 
     st.markdown("---")
 
