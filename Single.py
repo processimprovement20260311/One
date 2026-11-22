@@ -651,9 +651,9 @@ def simulate_play(state):
                     play_desc += ret
                 else:
                     ret = random.randint(0, 20)
-                    spot = state["yardline"] + ret
+                    # Correctly flip field position: subtract from offense yardline, then flip
+                    state["yardline"] = max(1, 100 - (state["yardline"] - ret))
                     state["possession"] = def_team
-                    state["yardline"] = 20 if spot >= 100 else 100 - spot
                     state["down"] = 1
                     state["distance"] = 10
             else:
@@ -1029,7 +1029,8 @@ def apply_manual_play(state, parsed):
                 state["possession"] = def_team
                 ret_yds = parsed.get("int_return_yards", 0) if is_int else 0
                 if ret_yds > 0:
-                    state["yardline"] = max(1, 100 - (state["yardline"] + ret_yds))
+                    # Correctly flip field position: subtract from offense yardline, then flip
+                    state["yardline"] = max(1, 100 - (state["yardline"] - ret_yds))
                 else:
                     state["yardline"] = max(1, 100 - state["yardline"])
                 state["down"] = 1
